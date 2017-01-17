@@ -15,16 +15,14 @@ datareadln <- function() {
     inner_join(read.csv("./Data/meta_SedimentSampleList.csv"), by = c("SplNo" = "SplNo")) %>%
     right_join(read.csv("./Data/meta_Quadrat.csv"), by = c("QudNo" = "QudNo")) %>%
     inner_join(read.csv("./Data/meta_SiteGroup.csv"), by = c("SiteID" = "SiteID"))%>%
-    filter(group != "NV") %>%
     return()
 }
 
 ## calculation ----
-nacount <- function(v) {sum(is.na(v))}
 datareadln() %>% 
   group_by(SiteID, group, SplMonth) %>%
   summarise(n = n(),
-            N_avg = mean(N),N_se = sd(N)/sqrt(n()-nacount(N)),
+            N_avg = mean(N),N_se = sd(N)/sqrt(n()),
             C_avg = mean(C),C_se = sd(C)/sqrt(n()),
             S_avg = mean(S),S_se = sd(S)/sqrt(n()),
             P_avg = mean(P),P_se = sd(P)/sqrt(n()),
@@ -39,7 +37,7 @@ datareadln() %>%
             As_avg = mean(As),As_se = sd(As)/sqrt(n()),
             Cd_avg = mean(Cd),Cd_se = sd(Cd)/sqrt(n()),
             Pb_avg = mean(Pb),Pb_se = sd(Pb)/sqrt(n())
-  ) %>% View()
+  ) %>%
   write.csv("./SedimentElement/summary_SedimentElement.csv")
 
 ## One-way anova:SiteID ----

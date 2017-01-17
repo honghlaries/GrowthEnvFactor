@@ -19,12 +19,23 @@ datareadln <- function() {
     return()
 }
 
-removezerose <- function(se) {
-  if(se == 0) NA else se %>%
-    return()
-}
+
 
 ## calculation ----
+#progressing
+source("calMeanSe.R")
+
+calMeanSe(dat = datareadln(), group = c("SiteID", "group", "SplMonth"), 
+          trait.input = "Number", trait.output = "Density")
+
+datareadln() %>% 
+  group_by(SiteID, group, SplMonth) %>%
+  summarise_(x = interp(~ mean(var), var = as.name("Height_mean"))) %>%
+  group_by() %>%
+  select(x)
+tmp = "Height"
+            
+
 datareadln() %>% 
   group_by(SiteID, group, SplMonth) %>%
   summarise(n = n(),
@@ -50,7 +61,7 @@ datareadln() %>%
             StWg_se = sd(StWg_mean)/sqrt(n()),
             Seed_rate_avg = mean(Seed_rate),
             Seed_rate_se = sd(Seed_rate)/sqrt(n())
-            ) %>%
+            ) %>% 
   write.csv("./PlantGrowth/summary_PlantGrowthSummary.csv")
 
 ## Two-way anova ----
