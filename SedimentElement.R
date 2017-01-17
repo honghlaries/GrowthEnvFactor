@@ -1,16 +1,9 @@
 ## clean ----
 rm(list = ls())
-
-## package loading ----
-library(dplyr)
-library(tidyr)
-library(agricolae)
-library(ggplot2)
+library(dplyr,tidyr)
 
 ## functions ----
 datareadln <- function() {
-  library(dplyr)
-  library(tidyr)
   read.csv("./Data/Result_Sediment.csv") %>%
     inner_join(read.csv("./Data/meta_SedimentSampleList.csv"), by = c("SplNo" = "SplNo")) %>%
     right_join(read.csv("./Data/meta_Quadrat.csv"), by = c("QudNo" = "QudNo")) %>%
@@ -19,28 +12,68 @@ datareadln <- function() {
     return()
 }
 
-## calculation ----
-nacount <- function(v) {sum(is.na(v))}
-datareadln() %>% 
-  group_by(SiteID, group, SplMonth) %>%
-  summarise(n = n(),
-            N_avg = mean(N),N_se = sd(N)/sqrt(n()-nacount(N)),
-            C_avg = mean(C),C_se = sd(C)/sqrt(n()),
-            S_avg = mean(S),S_se = sd(S)/sqrt(n()),
-            P_avg = mean(P),P_se = sd(P)/sqrt(n()),
-            orgC_avg = mean(orgC),orgC_se = sd(orgC)/sqrt(n()),
-            Al_avg = mean(Al),Al_se = sd(Al)/sqrt(n()),
-            Cr_avg = mean(Cr),Cr_se = sd(Cr)/sqrt(n()),
-            Mn_avg = mean(Mn),Mn_se = sd(Mn)/sqrt(n()),
-            Fe_avg = mean(Fe),Fe_se = sd(Fe)/sqrt(n()),
-            Ni_avg = mean(Ni),Ni_se = sd(Ni)/sqrt(n()),
-            Cu_avg = mean(Cu),Cu_se = sd(Cu)/sqrt(n()),
-            Zn_avg = mean(Zn),Zn_se = sd(Zn)/sqrt(n()),
-            As_avg = mean(As),As_se = sd(As)/sqrt(n()),
-            Cd_avg = mean(Cd),Cd_se = sd(Cd)/sqrt(n()),
-            Pb_avg = mean(Pb),Pb_se = sd(Pb)/sqrt(n())
-  ) %>% View()
-  write.csv("./SedimentElement/summary_SedimentElement.csv")
+meanseCal <- function(dat) { ## calulate and output mean and se ----
+  se <- function(v) {
+    if(length(v) < 2) {NA} else {sd(v, na.rm = T)/sqrt(length(v)-sum(is.na(v)))}
+  }
+  dat %>%
+    group_by(SiteID, group, SplMonth) %>%
+    summarise(N_avg = mean(N,na.rm = T),N_se = se(N),
+              C_avg = mean(C,na.rm = T),C_se = se(C),
+              S_avg = mean(S,na.rm = T),S_se = se(S),
+              P_avg = mean(P,na.rm = T),P_se = se(P),
+              orgC_avg = mean(orgC,na.rm = T),orgC_se = se(orgC),
+              Al_avg = mean(Al,na.rm = T),Al_se = se(Al),
+              Cr_avg = mean(Cr,na.rm = T),Cr_se = se(Cr),
+              Mn_avg = mean(Mn,na.rm = T),Mn_se = se(Mn),
+              Fe_avg = mean(Fe,na.rm = T),Fe_se = se(Fe),
+              Ni_avg = mean(Ni,na.rm = T),Ni_se = se(Ni),
+              Cu_avg = mean(Cu,na.rm = T),Cu_se = se(Cu),
+              Zn_avg = mean(Zn,na.rm = T),Zn_se = se(Zn),
+              As_avg = mean(As,na.rm = T),As_se = se(As),
+              Cd_avg = mean(Cd,na.rm = T),Cd_se = se(Cd),
+              Pb_avg = mean(Pb,na.rm = T),Pb_se = se(Pb)) %>%
+    write.csv("sediment/log/SedimentElement.csv")
+}
+
+## STAT begin
+meanseCal(datareadln())
+library(lme4)
+library(car)
+
+modelCompare <- function(dat, formulaList, log = TRUE) {
+  if (!file.exists("sediment/log/SedimentElementModel.csv")) {
+    write.table(t(c("Df","AIC","BIC","Loglik","deviance","Chisq","ChiDf","Pr(>Chisq)","mod",	"ref","result")),
+                file = "sediment/log/SedimentElementModel.csv", sep = ",", row.names = F, col.names = F)
+  }
+  mod.champion <- lmer(formulaList[[1]], data = dat)
+  for (i in 2:length(formulaList)) {
+    mod.challenger <- lmer(formulaList[[i]], data = dat)
+    comp <- anova(mod.champion, mod.challenger)
+    mod <- as.character(formula(mod.champion@call))
+    modp <- as.character(formula(mod.challenger@call))
+    if(log) write.table(cbind(comp,
+                            mod = c(paste(mod[2],"~",mod[3]),paste(modp[2],"~",modp[3])),
+                            ref = c("champion", "challenger"),
+                            result = if (comp$AIC[2] < comp$AIC[1]) c("", "Win") else c("Win", "")) ,
+                      file = "sediment/log/SedimentElementModel.csv", 
+                      append = T, sep = ",", row.names = F, col.names = F)
+    if (comp$AIC[2] < comp$AIC[1]) mod.champion <- mod.challenger
+  }
+  mod.champion
+}
+
+formulaList <- c(N ~ group + (1|group:SiteID) + (1|SiteID:SplMonth),
+                 N ~ group + SplMonth + (1|group:SiteID) + (1|SiteID:SplMonth),
+                 N ~ group * SplMonth + (1|group:SiteID) + (1|SiteID:SplMonth))
+modelCompare(dat = datareadln(), formulaList = formulaList)
+
+a <- "N";b <- "group + (1|group:SiteID) + (1|SiteID:SplMonth)"
+as.formula(paste(a,"~",b)) 
+
+mod.challenger <- lmer(as.formula(paste(a,"~",b)), data = dat)
+
+
 
 ## One-way anova:SiteID ----
 tmp.fit <- aov(N ~SiteID, data = datareadln())
