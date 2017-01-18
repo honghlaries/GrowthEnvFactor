@@ -1,24 +1,25 @@
 ## clean ----
 rm(list = ls())
-library(dplyr,tidyr)
+library(dplyr);library(tidyr)
 
-## functions ----
+## Functions ----
 datareadln <- function() {
   read.csv("./Data/Result_Sediment.csv") %>%
-    inner_join(read.csv("./Data/meta_SedimentSampleList.csv"), by = c("SplNo" = "SplNo")) %>%
-    right_join(read.csv("./Data/meta_Quadrat.csv"), by = c("QudNo" = "QudNo")) %>%
-    inner_join(read.csv("./Data/meta_SiteGroup.csv"), by = c("SiteID" = "SiteID"))%>%
-    filter(group != "NV") %>%
+    dplyr::inner_join(read.csv("./Data/meta_SedimentSampleList.csv"), by = c("SplNo" = "SplNo")) %>%
+    dplyr::right_join(read.csv("./Data/meta_Quadrat.csv"), by = c("QudNo" = "QudNo")) %>%
+    dplyr::inner_join(read.csv("./Data/meta_SiteGroup.csv"), by = c("SiteID" = "SiteID"))%>%
+    dplyr::filter(group != "NV") %>% 
+    dplyr::select(N:Pb,SiteID,SplMonth,group) %>%
     return()
 }
 
-meanseCal <- function(dat) { ## calulate and output mean and se ----
+meanseCal <- function(dat) { ## calulate and output mean and se
   se <- function(v) {
     if(length(v) < 2) {NA} else {sd(v, na.rm = T)/sqrt(length(v)-sum(is.na(v)))}
   }
   dat %>%
-    group_by(SiteID, group, SplMonth) %>%
-    summarise(N_avg = mean(N,na.rm = T),N_se = se(N),
+    dplyr::group_by(SiteID, group, SplMonth) %>%
+    dplyr::summarise(N_avg = mean(N,na.rm = T),N_se = se(N),
               C_avg = mean(C,na.rm = T),C_se = se(C),
               S_avg = mean(S,na.rm = T),S_se = se(S),
               P_avg = mean(P,na.rm = T),P_se = se(P),
@@ -36,42 +37,194 @@ meanseCal <- function(dat) { ## calulate and output mean and se ----
     write.csv("sediment/log/SedimentElement.csv")
 }
 
-## STAT begin
-meanseCal(datareadln())
-library(lme4)
-library(car)
-
-modelCompare <- function(dat, formulaList, log = TRUE) {
+modelCompare <- function(dat, tag, fact, log = TRUE) {
+  library(lme4);library(car)
   if (!file.exists("sediment/log/SedimentElementModel.csv")) {
-    write.table(t(c("Df","AIC","BIC","Loglik","deviance","Chisq","ChiDf","Pr(>Chisq)","mod",	"ref","result")),
+    write.table(t(c("Df","AIC","BIC","Loglik","deviance","Chisq","ChiDf","Pr(>Chisq)","mod",	"ref","result","time")),
                 file = "sediment/log/SedimentElementModel.csv", sep = ",", row.names = F, col.names = F)
+  }
+  dat <- dat %>% filter(elem == tag) %>% filter(!is.na(resp))
+  formulaList <- NULL
+  for (j in 1:length(fact)) {
+    formulaList <- c(formulaList, as.formula(paste("resp","~",fact[j])))
   }
   mod.champion <- lmer(formulaList[[1]], data = dat)
   for (i in 2:length(formulaList)) {
     mod.challenger <- lmer(formulaList[[i]], data = dat)
     comp <- anova(mod.champion, mod.challenger)
-    mod <- as.character(formula(mod.champion@call))
-    modp <- as.character(formula(mod.challenger@call))
+    mod <- as.character(formula(mod.champion@call))[3]
+    modp <- as.character(formula(mod.challenger@call))[3]
     if(log) write.table(cbind(comp,
-                            mod = c(paste(mod[2],"~",mod[3]),paste(modp[2],"~",modp[3])),
-                            ref = c("champion", "challenger"),
-                            result = if (comp$AIC[2] < comp$AIC[1]) c("", "Win") else c("Win", "")) ,
-                      file = "sediment/log/SedimentElementModel.csv", 
-                      append = T, sep = ",", row.names = F, col.names = F)
+                              mod = c(paste(tag,"~",mod),paste(tag,"~",modp)),
+                              ref = c("champion", "challenger"),
+                              result = if (comp$AIC[2] < comp$AIC[1]) c("", "Win") else c("Win", ""),
+                              time = date()) ,
+                        file = "sediment/log/SedimentElementModel.csv", 
+                        append = T, sep = ",", row.names = F, col.names = F)
     if (comp$AIC[2] < comp$AIC[1]) mod.champion <- mod.challenger
   }
   mod.champion
 }
 
-formulaList <- c(N ~ group + (1|group:SiteID) + (1|SiteID:SplMonth),
-                 N ~ group + SplMonth + (1|group:SiteID) + (1|SiteID:SplMonth),
-                 N ~ group * SplMonth + (1|group:SiteID) + (1|SiteID:SplMonth))
-modelCompare(dat = datareadln(), formulaList = formulaList)
+plotREsim2 <- function (data, level = 0.95, stat = "median", sd = TRUE, sigmaScale = NULL, 
+                        oddsRatio = FALSE, labs = FALSE, taglv = NA, ncol) {
+  ## plotREsim2, modified from merTools::plotREsim
+  if (!missing(sigmaScale)) {
+    data[, "sd"] <- data[, "sd"]/sigmaScale
+    data[, stat] <- data[, stat]/sigmaScale
+  }
+  data[, "sd"] <- data[, "sd"] * qnorm(1 - ((1 - level)/2))
+  data[, "ymax"] <- data[, stat] + data[, "sd"]
+  data[, "ymin"] <- data[, stat] - data[, "sd"]
+  data[, "sig"] <- data[, "ymin"] > 0 | data[, "ymax"] < 0
+  hlineInt <- 0
+  if (oddsRatio == TRUE) {
+    data[, "ymax"] <- exp(data[, "ymax"])
+    data[, stat] <- exp(data[, stat])
+    data[, "ymin"] <- exp(data[, "ymin"])
+    hlineInt <- 1
+  }
+  #data <- data[order(data[, "groupFctr"], data[, "term"], data[,stat]), ]
+  #rownames(data) <- 1:nrow(data)
+  data[, "xvar"] <- factor(paste(data$groupFctr, data$groupID, 
+                                 sep = ""), levels = unique(paste(data$groupFctr, data$groupID, 
+                                                                  sep = "")), ordered = TRUE)
+  if (labs == TRUE) {
+    xlabs.tmp <- element_text(face = "bold", angle = 90, 
+                              vjust = 0.5)
+  }
+  else {
+    data[, "xvar"] <- as.numeric(data[, "xvar"])
+    xlabs.tmp <- element_blank()
+  }
+  if (!is.na(taglv)) { 
+    tmp <- NULL
+    for (k in 1: length(taglv)) {
+      tmp <- rbind(tmp, dplyr::filter(data, tag == taglv[k]))
+    }
+    data <- tmp
+    data$tag <- factor(data$tag, levels = taglv)
+  }
+  p <- ggplot(data, aes_string(x = "xvar", y = stat, ymax = "ymax", 
+                               ymin = "ymin")) +
+    geom_hline(yintercept = hlineInt, color = I("red"), size = I(1.1)) +
+    geom_point(color = "gray75", alpha = 1/(nrow(data)^0.33),  size = I(0.5)) +
+    geom_point(data = subset(data, sig ==  TRUE), size = I(3)) + 
+    labs(x = "Group", y = "Effect Range") + 
+    theme_bw() #+ theme(panel.grid.major = element_blank(), 
+  #        panel.grid.minor = element_blank(), axis.text.x = xlabs.tmp, 
+  #        axis.ticks.x = element_blank())
+  if (sd) {
+    p <- p + geom_pointrange(alpha = 1/(nrow(data)^0.33)) + 
+      geom_pointrange(data = subset(data, sig == TRUE), 
+                      alpha = 0.25)
+  }
+  p + facet_wrap(~tag + groupFctr, ncol = ncol, scales = "free")
+}
 
-a <- "N";b <- "group + (1|group:SiteID) + (1|SiteID:SplMonth)"
-as.formula(paste(a,"~",b)) 
+plotFEsim2 <- function (data, level = 0.95, stat = "median", sd = TRUE, intercept = FALSE, 
+                        sigmaScale = NULL, oddsRatio = FALSE, taglv = NA, glv, gcode, ncol) {
+  ## plotFEsim2, modified from merTools::plotFEsim
+  if (!missing(sigmaScale)) {
+    data[, "sd"] <- data[, "sd"]/sigmaScale
+    data[, stat] <- data[, stat]/sigmaScale
+  }
+  if (intercept == FALSE) {
+    data <- data[data$term != "(Intercept)", ]
+  }
+  data[, "sd"] <- data[, "sd"] * qnorm(1 - ((1 - level)/2))
+  data[, "ymax"] <- data[, stat] + data[, "sd"]
+  data[, "ymin"] <- data[, stat] - data[, "sd"]
+  hlineInt <- 0
+  if (oddsRatio == TRUE) {
+    data[, "ymax"] <- exp(data[, "ymax"])
+    data[, stat] <- exp(data[, stat])
+    data[, "ymin"] <- exp(data[, "ymin"])
+    hlineInt <- 1
+  }
+  xvar <- "term"
+  data$term <- as.character(data$term)
+  data$term <- factor(data$term, levels = data[order(data[, stat]), 1])
+  if (!is.na(taglv)) { 
+    tmp <- NULL
+    for (k in 1: length(taglv)) {
+      tmp <- rbind(tmp, dplyr::filter(data, tag == taglv[k]))
+    }
+    data <- tmp
+    data$tag <- factor(data$tag, levels = taglv)
+  }
+  gcol <- rep("black",length(data$term)/length(taglv))
+  gsize <- rep(1,length(data$term)/length(taglv))
+  gltp <- rep(2,length(data$term)/length(taglv))
+  for (m in 1: length(glv)) {
+    gcol[levels(data$term) == glv[m]] <- gcode[m]
+    gsize[levels(data$term) == glv[m]] <- 3
+  }
+  llv <- c("Nov","Jul","EA","NV","WE")
+  for (m in 1: length(llv)) {
+    gltp[levels(data$term) == llv[m]] <- 1
+  }
+  p <- ggplot(aes_string(x = xvar, y = stat, ymax = "ymax", ymin = "ymin"), data = data) + 
+    geom_hline(yintercept = hlineInt, color = I("red")) +
+    geom_point(aes(col = term, size = term)) + 
+    labs(x = "Group", y = "Fixed Effect") + 
+    scale_color_manual("Group", breaks = levels(data$term), values = gcol) + 
+    scale_size_manual("Group", breaks = levels(data$term), values = gsize) + 
+    facet_wrap(~ tag, ncol = ncol) +
+    coord_flip() + theme_bw() + theme(legend.position = "none")
+  if (sd) {
+    p <- p + geom_errorbar(aes(linetype = term), width = 0.2) +
+      scale_linetype_manual("Group", breaks = levels(data$term), values = gltp)
+  }
+  p
+}
 
-mod.challenger <- lmer(as.formula(paste(a,"~",b)), data = dat)
+multiElementMod <- function(dat, tag, fact, archiplot = TRUE) {
+  library(merTools);library(lsmeans);library(multcompView)
+  
+  dat <- dat %>% gather(key = elem, value = resp, N:Pb); fe.g <- NULL; re.g <- NULL;
+  for (i in 1:length(tag)) {
+    mod <- modelCompare(dat, tag[i], fact)
+    ## Fixed effect calculation
+    fe <- FEsim(mod)
+    if (archiplot) {
+      ggsave(plot = plotFEsim(fe), 
+             paste("sediment/Fixeff/",tag,"_Fixeff.png",sep=""),
+             width = 6, height = 4)
+    }
+    fe.g <- rbind(fe.g, fe, elem[i])
+    ## Random effect cal
+    
+  }
+  mod
+}
+
+## STAT begin ----
+meanseCal(datareadln())
+
+
+modd <- multiElementMod(datareadln() , tag = c("N"), 
+                fact = c("group + (1|SiteID)", 
+                  "group + (1|SiteID:SplMonth)",
+                  "group + (1|SiteID) + (1|SiteID:SplMonth)", 
+                  "group + SplMonth + (1|SiteID)",
+                  "group + SplMonth + (1|SiteID:SplMonth)",
+                  "group + SplMonth + (1|SiteID) + (1|SiteID:SplMonth)",
+                  "group * SplMonth + (1|SiteID)",
+                  "group * SplMonth + (1|SiteID:SplMonth)",
+                  "group * SplMonth + (1|SiteID) + (1|SiteID:SplMonth)"))
+
+
+
+anova(modd) -> a
+Anova(modd) -> b
+cbind(a[,c(1,2,3)],Chisq = b[,1], Fvalue = a[,4],Pr = b[,3], FixedFact = row.names(a))
+
+lsmeans::cld(lsmeans(object = modd, adjust = "tukey",
+                     specs = pairwise ~ group + SplMonth),
+             Letters = LETTERS)
+
+
 
 
 
