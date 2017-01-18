@@ -1,7 +1,6 @@
 ## clean ----
 rm(list = ls())
 library(dplyr);library(tidyr)
-theme_HL <- theme_bw() + theme(legend.position = "none", axis.text = element_text(angle = 30))
 
 ## Functions ----
 datareadln <- function() {
@@ -86,7 +85,54 @@ modelCompare <- function(dat, tag, fact, log = TRUE) {
   mod.champion
 }
 
-plotREsim2 <- function (data, level = 0.95, stat = "median", sd = TRUE, sigmaScale = NULL, 
+plotFEsim2 <- function (fe, modinf = NULL, level = 0.95, stat = "mean", sd = TRUE,  
+                        sigmaScale = NULL, oddsRatio = FALSE, glv, gcode) {
+  ## plotFEsim2, modified from merTools::plotFEsim
+  if (!missing(sigmaScale)) {
+    fe[, "sd"] <- fe[, "sd"]/sigmaScale
+    fe[, stat] <- fe[, stat]/sigmaScale
+  }
+  fe[, "sd"] <- fe[, "sd"] * qnorm(1 - ((1 - level)/2))
+  fe[, "ymax"] <- fe[, stat] + fe[, "sd"]
+  fe[, "ymin"] <- fe[, stat] - fe[, "sd"]
+  hlineInt <- 0
+  if (oddsRatio == TRUE) {
+    fe[, "ymax"] <- exp(fe[, "ymax"])
+    fe[, stat] <- exp(fe[, stat])
+    fe[, "ymin"] <- exp(fe[, "ymin"])
+    hlineInt <- 1
+  }
+  xvar <- "term"
+  fe$term <- as.character(fe$term)
+  fe$term <- factor(fe$term, levels = fe[order(fe[, stat]), 1])
+  
+  gcol <- rep("black",length(levels(fe$term)))
+  gsize <- rep(1,length(levels(fe$term)))
+  gltp <- rep(2,length(levels(fe$term)))
+  for (m in 1: length(glv)) {
+    gcol[levels(fe$term) == glv[m]] <- gcode[m]
+    gsize[levels(fe$term) == glv[m]] <- 4
+  }
+  llv <- c("Nov","Jul","EA","NV","WE")
+  for (m in 1: length(llv)) {
+    gltp[levels(fe$term) == llv[m]] <- 1
+  }
+  p <- ggplot(aes_string(x = xvar, y = stat, ymax = "ymax", ymin = "ymin"), data = fe) + 
+    geom_hline(yintercept = hlineInt, color = I("red")) +
+    geom_point(aes(col = term, size = term)) + 
+    labs(x = "Group", y = "Fixed Effect") + 
+    scale_color_manual("Group", breaks = levels(fe$term), values = gcol) + 
+    scale_size_manual("Group", breaks = levels(fe$term), values = gsize) + 
+    coord_flip() + 
+    theme_HL
+  if (sd) {
+    p <- p + geom_errorbar(aes(linetype = term), width = 0.2) +
+      scale_linetype_manual("Group", breaks = levels(fe$term), values = gltp)
+  }
+  p
+}
+
+plotREsim2facet <- function (data, level = 0.95, stat = "median", sd = TRUE, sigmaScale = NULL, 
                         oddsRatio = FALSE, labs = FALSE, taglv = NA, ncol) {
   ## plotREsim2, modified from merTools::plotREsim
   if (!missing(sigmaScale)) {
@@ -142,7 +188,7 @@ plotREsim2 <- function (data, level = 0.95, stat = "median", sd = TRUE, sigmaSca
   p + facet_wrap(~tag + groupFctr, ncol = ncol, scales = "free")
 }
 
-plotFEsim2 <- function (fe, modinf = NULL, level = 0.95, stat = "mean", sd = TRUE,  
+plotFEsim2facet <- function (fe, modinf = NULL, level = 0.95, stat = "mean", sd = TRUE,  
                         sigmaScale = NULL, oddsRatio = FALSE, taglv = NA, glv, gcode, ncol) {
   ## plotFEsim2, modified from merTools::plotFEsim
   if (!missing(sigmaScale)) {
@@ -200,163 +246,96 @@ plotFEsim2 <- function (fe, modinf = NULL, level = 0.95, stat = "mean", sd = TRU
   p
 }
 
-multiElementMod <- function(dat, tag, fact, archiplot = TRUE, log = TRUE) {
-  library(merTools);library(lsmeans);library(multcompView);library(ggplot2);library(car)
-  dat <- dat %>% gather(key = elem, value = resp, N:Pb); 
-  fe.g <- NULL; re.g <- NULL; modinf.g <- NULL
+multiElementMod <- function(dat, 
+                            fact = c("group + (1|SiteID)", 
+                                           "group + (1|SiteID:SplMonth)",
+                                           "group + (1|SiteID) + (1|SiteID:SplMonth)", 
+                                           "group + SplMonth + (1|SiteID)",
+                                           "group + SplMonth + (1|SiteID:SplMonth)",
+                                           "group + SplMonth + (1|SiteID) + (1|SiteID:SplMonth)",
+                                           "group * SplMonth + (1|SiteID)",
+                                           "group * SplMonth + (1|SiteID:SplMonth)",
+                                           "group * SplMonth + (1|SiteID) + (1|SiteID:SplMonth)"),
+                            SplMonthlv = c("Apr","Jul","Nov"), grouplv = c("EA","CL","WE"), 
+                            glv = c("EA","WE"), gcode = c("#31B404","#013ADF"),
+                            tag = c("N","C","orgC","S","P","Al","Fe","Mn","Cu","Zn","Ni","Cr","Pb","As","Cd"),
+                            theme_HL = theme_bw() + 
+                              theme(legend.position = "none",
+                                    axis.text = element_text(angle = 30)),
+                            archiplot = TRUE, log = TRUE) {
+  library(merTools);library(lsmeans);library(multcompView);library(car)
+  fe.g <- NULL; re.g <- NULL; modinf.g <- NULL; shapiro.g <- NULL; posthoc.g <- NULL; modavo.g <- NULL; 
+  resid.g <- NULL;
   for (i in 1:length(tag)) {
-    mod <- modelCompare(dat, tag[i], fact, log = log)
-    ## Fixed effect calculation
-    fe <- FEsim(mod)
-    if (archiplot) {
-      ggsave(plot = plotFEsim(fe), 
-             paste("sediment/Fixeff/",tag,"_Fixeff.png",sep=""),
-             width = 6, height = 4)
-    }
-    fe.g <- rbind(fe.g, cbind(fe, tag = tag[i]))
-    ## Random effect calculation
-    ## Model Stat information
+    
+    #shapiro
+    shapiroTest(dat = dat, tag = tag[i], grouplv = grouplv, SplMonthlv = SplMonthlv) -> shapiro
+    print(shapiro); 
+    shapiro.g <- rbind(shapiro.g, cbind(shapiro, tag[i]))
+    
+    #mod choose
+    mod <- modelCompare(dat = dat, tag = tag[i], fact = fact,log = log)
+    paste(tag[i],"~",as.character(formula(mod@call))[3]) -> modinf
+    print(modinf); 
+    modinf.g <- rbind(modinf.g, cbind(modinf, tag[i]))
+    
+    #anova
     nyma <- anova(mod)
     nymb <- Anova(mod)
-    modinf.g <- rbind(modinf.g, cbind(nyma[,c(1,2,3)],Chisq = nymb[,1], Fvalue = nyma[,4],Pr = nymb[,3], 
-                                        FixedFact = row.names(nyma), tag = tag[i], 
-                                        model = paste(tag[i],"~",as.character(formula(mod@call))[3])))
+    cbind(nyma[,c(1,2,3)],Chisq = nymb[,1], Fvalue = nyma[,4],Pr = nymb[,3], 
+          FixedFact = row.names(nyma), tag = tag[i]) -> modavo; print(modavo); 
+    modavo.g <- rbind(modavo.g, cbind(modavo, tag[i]))
+    
+    #posthoc
+    lsmeans::cld(lsmeans(object = mod, adjust = "tukey",
+                         specs = pairwise ~ group + SplMonth),
+                 Letters = LETTERS) -> posthoc; print(posthoc); 
+    posthoc.g <- rbind(posthoc.g,cbind(posthoc, tag[i]))
+    
+    # fe
+    fe <- FEsim(mod)
+    fe.g <- rbind(fe.g, cbind(tag = tag[i],fe))
+    ggsave(plot = plotFEsim2(fe%>% filter(term != "(Intercept)") %>%
+                               mutate(term = gsub("group","",term)) %>% 
+                               mutate(term = gsub("SplMonth","",term)),
+                             glv = glv, gcode = gcode), 
+           paste("sediment/plot/",tag[i],"_Fixeff.png",sep=""),
+           width = 6, height = 4)
+    #re
+    re <- REsim(mod)
+    re.g <- rbind(re.g, cbind(tag = tag[i],re))
+    ggsave(plot = merTools::plotREsim(re), 
+           paste("sediment/plot/",tag[i],"_Raneff.png",sep=""),
+           width = 6, height = 4)
+    #resid
+    png(paste("sediment/plot/",tag[i],"_resid.png",sep=""),
+        width = 30, height = 20, units = "cm", res = 600)
+    plot(mod)
+    dev.off()
+    stats::shapiro.test(resid(mod)) -> resid
+    resid.g <- rbind(resid.g, 
+                     data.frame(tag = tag[i],
+                                W = resid$statistic,
+                                Pvalue = resid$p.value))
   }
-  if (log) write.csv(fe.g, "sediment/log/FixedEff.csv")
-  if (log) write.csv(statinf.g, "sediment/log/ModelStat.csv")
-  #p.fe <- plotFEsim2(fe = fe.g %>% filter(term != "(Intercept)") %>%
-  #                     mutate(term = gsub("group","",term)) %>% mutate(term = gsub("SplMonth","",term)), 
-  #                   modinf = modinf.g,
-  #                   ncol = 2, taglv = c("N","Cu","Al","orgC"), glv = c("EA","WE"), gcode = c("#31B404","#013ADF"))
-  #statinf.g %>% group_by(tag) %>% summarise(model = unique(model))
-  mod
+  ## output
+  if (log) {write.csv(fe.g, "sediment/log/FixedEff.csv")
+    write.csv(re.g, "sediment/log/RandomEff.csv")
+    write.csv(modinf.g, "sediment/log/ModelChoice.csv") 
+    write.csv(shapiro.g, "sediment/log/ShapiroRawData.csv") 
+    write.csv(posthoc.g, "sediment/log/Posthoc.csv") 
+    write.csv(modavo.g, "sediment/log/ModelAnova.csv") 
+    write.csv(resid.g, "sediment/log/ShapiroResid.csv")
+  }
+  "DONE!"
 }
 
-## STAT begin ----
+## Basic Stat information ----
 meanseCal(datareadln())
 
-
 ## LMM fiting and ploting ----
-fact <- c("group + (1|SiteID)", 
-          "group + (1|SiteID:SplMonth)",
-          "group + (1|SiteID) + (1|SiteID:SplMonth)", 
-          "group + SplMonth + (1|SiteID)",
-          "group + SplMonth + (1|SiteID:SplMonth)",
-          "group + SplMonth + (1|SiteID) + (1|SiteID:SplMonth)",
-          "group * SplMonth + (1|SiteID)",
-          "group * SplMonth + (1|SiteID:SplMonth)",
-          "group * SplMonth + (1|SiteID) + (1|SiteID:SplMonth)")
-SplMonthlv <- c("Apr","Jul","Nov")
-grouplv <- c("EA","CL","WE")
-fe.g <- NULL; re.g <- NULL; modinf.g <- NULL; shapiro.g <- NULL; posthoc.g <- NULL
-dat <- datareadln() %>% gather(key = elem, value = resp, N:Pb)
+multiElementMod(dat = datareadln() %>% gather(key = elem, value = resp, N:Pb))
 
-#N 
-shapiroTest(dat = dat, tag = "N", grouplv = grouplv, SplMonthlv = SplMonthlv) -> shapiro
-shapiro.g <- rbind(shapiro.g, shapiro)
-
-mod <- modelCompare(dat = dat, tag = "N", fact = fact)
-
-
-lsmeans::cld(lsmeans(object = modd, adjust = "tukey",
-                     specs = pairwise ~ group + SplMonth),
-             Letters = LETTERS)
-
-
-
-
-
-## One-way anova:SiteID ----
-tmp.fit <- aov(N ~SiteID, data = datareadln())
-HSD.test(tmp.fit, "SiteID", group=TRUE, console=TRUE, alpha = 0.05)
-
-tmp.fit <- aov(C ~SiteID, data = datareadln())
-HSD.test(tmp.fit, "SiteID", group=TRUE, console=TRUE, alpha = 0.05)
-
-tmp.fit <- aov(S ~SiteID, data = datareadln())
-HSD.test(tmp.fit, "SiteID", group=TRUE, console=TRUE, alpha = 0.05)
-
-tmp.fit <- aov(P ~SiteID, data = datareadln())
-HSD.test(tmp.fit, "SiteID", group=TRUE, console=TRUE, alpha = 0.05)
-
-tmp.fit <- aov(orgC ~SiteID, data = datareadln())
-HSD.test(tmp.fit, "SiteID", group=TRUE, console=TRUE, alpha = 0.05)
-
-tmp.fit <- aov(Al ~SiteID, data = datareadln())
-HSD.test(tmp.fit, "SiteID", group=TRUE, console=TRUE, alpha = 0.05)
-
-tmp.fit <- aov(Cr ~SiteID, data = datareadln())
-HSD.test(tmp.fit, "SiteID", group=TRUE, console=TRUE, alpha = 0.05)
-
-tmp.fit <- aov(Mn ~SiteID, data = datareadln())
-HSD.test(tmp.fit, "SiteID", group=TRUE, console=TRUE, alpha = 0.05)
-
-tmp.fit <- aov(Fe ~SiteID, data = datareadln())
-HSD.test(tmp.fit, "SiteID", group=TRUE, console=TRUE, alpha = 0.05)
-
-tmp.fit <- aov(Ni ~SiteID, data = datareadln())
-HSD.test(tmp.fit, "SiteID", group=TRUE, console=TRUE, alpha = 0.05)
-
-tmp.fit <- aov(Cu ~SiteID, data = datareadln())
-HSD.test(tmp.fit, "SiteID", group=TRUE, console=TRUE, alpha = 0.05)
-
-tmp.fit <- aov(Zn ~SiteID, data = datareadln())
-HSD.test(tmp.fit, "SiteID", group=TRUE, console=TRUE, alpha = 0.05)
-
-tmp.fit <- aov(As ~SiteID, data = datareadln())
-HSD.test(tmp.fit, "SiteID", group=TRUE, console=TRUE, alpha = 0.05)
-
-tmp.fit <- aov(Cd ~SiteID, data = datareadln())
-HSD.test(tmp.fit, "SiteID", group=TRUE, console=TRUE, alpha = 0.05)
-
-tmp.fit <- aov(Pb ~SiteID, data = datareadln())
-HSD.test(tmp.fit, "SiteID", group=TRUE, console=TRUE, alpha = 0.05)
-
-## One-way anova:SplMonth ----
-tmp.fit <- aov(N ~SplMonth, data = datareadln())
-HSD.test(tmp.fit, "SplMonth", group=TRUE, console=TRUE, alpha = 0.05)
-
-tmp.fit <- aov(C ~SplMonth, data = datareadln())
-HSD.test(tmp.fit, "SplMonth", group=TRUE, console=TRUE, alpha = 0.05)
-
-tmp.fit <- aov(S ~SplMonth, data = datareadln())
-HSD.test(tmp.fit, "SplMonth", group=TRUE, console=TRUE, alpha = 0.05)
-
-tmp.fit <- aov(P ~SplMonth, data = datareadln())
-HSD.test(tmp.fit, "SplMonth", group=TRUE, console=TRUE, alpha = 0.05)
-
-tmp.fit <- aov(orgC ~SplMonth, data = datareadln())
-HSD.test(tmp.fit, "SplMonth", group=TRUE, console=TRUE, alpha = 0.05)
-
-tmp.fit <- aov(Al ~SplMonth, data = datareadln())
-HSD.test(tmp.fit, "SplMonth", group=TRUE, console=TRUE, alpha = 0.05)
-
-tmp.fit <- aov(Cr ~SplMonth, data = datareadln())
-HSD.test(tmp.fit, "SplMonth", group=TRUE, console=TRUE, alpha = 0.05)
-
-tmp.fit <- aov(Mn ~SplMonth, data = datareadln())
-HSD.test(tmp.fit, "SplMonth", group=TRUE, console=TRUE, alpha = 0.05)
-
-tmp.fit <- aov(Fe ~SplMonth, data = datareadln())
-HSD.test(tmp.fit, "SplMonth", group=TRUE, console=TRUE, alpha = 0.05)
-
-tmp.fit <- aov(Ni ~SplMonth, data = datareadln())
-HSD.test(tmp.fit, "SplMonth", group=TRUE, console=TRUE, alpha = 0.05)
-
-tmp.fit <- aov(Cu ~SplMonth, data = datareadln())
-HSD.test(tmp.fit, "SplMonth", group=TRUE, console=TRUE, alpha = 0.05)
-
-tmp.fit <- aov(Zn ~SplMonth, data = datareadln())
-HSD.test(tmp.fit, "SplMonth", group=TRUE, console=TRUE, alpha = 0.05)
-
-tmp.fit <- aov(As ~SplMonth, data = datareadln())
-HSD.test(tmp.fit, "SplMonth", group=TRUE, console=TRUE, alpha = 0.05)
-
-tmp.fit <- aov(Cd ~SplMonth, data = datareadln())
-HSD.test(tmp.fit, "SplMonth", group=TRUE, console=TRUE, alpha = 0.05)
-
-tmp.fit <- aov(Pb ~SplMonth, data = datareadln())
-HSD.test(tmp.fit, "SplMonth", group=TRUE, console=TRUE, alpha = 0.05)
 
 ## Two-way anova ----
 tmp.model <- lm(N ~ SiteID + SplMonth + SiteID * SplMonth, data = datareadln())
