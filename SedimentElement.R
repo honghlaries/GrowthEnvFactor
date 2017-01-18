@@ -41,7 +41,7 @@ meanseCal <- function(dat) { ## calulate and output mean and se
 modelCompare <- function(dat, tag, fact, log = TRUE) {
   library(lme4);library(car)
   if (!file.exists("sediment/log/SedimentElementModel.csv")) {
-    write.table(t(c("Df","AIC","BIC","Loglik","deviance","Chisq","ChiDf","Pr(>Chisq)","mod",	"ref","result","time")),
+    write.table(t(c("Df","AIC","BIC","Loglik","deviance","Chisq","ChiDf","Pr(>Chisq)","model","ref","result","time")),
                 file = "sediment/log/SedimentElementModel.csv", sep = ",", row.names = F, col.names = F)
   }
   dat <- dat %>% filter(elem == tag) %>% filter(!is.na(resp))
@@ -56,7 +56,7 @@ modelCompare <- function(dat, tag, fact, log = TRUE) {
     mod <- as.character(formula(mod.champion@call))[3]
     modp <- as.character(formula(mod.challenger@call))[3]
     if(log) write.table(cbind(comp,
-                              mod = c(paste(tag,"~",mod),paste(tag,"~",modp)),
+                              model = c(paste(tag,"~",mod),paste(tag,"~",modp)),
                               ref = c("champion", "challenger"),
                               result = if (comp$AIC[2] < comp$AIC[1]) c("", "Win") else c("Win", ""),
                               time = date()) ,
@@ -123,60 +123,60 @@ plotREsim2 <- function (data, level = 0.95, stat = "median", sd = TRUE, sigmaSca
   p + facet_wrap(~tag + groupFctr, ncol = ncol, scales = "free")
 }
 
-plotFEsim2 <- function (data, level = 0.95, stat = "median", sd = TRUE, intercept = FALSE, 
+plotFEsim2 <- function (fe, modinf = NULL, level = 0.95, stat = "mean", sd = TRUE,  
                         sigmaScale = NULL, oddsRatio = FALSE, taglv = NA, glv, gcode, ncol) {
   ## plotFEsim2, modified from merTools::plotFEsim
   if (!missing(sigmaScale)) {
-    data[, "sd"] <- data[, "sd"]/sigmaScale
-    data[, stat] <- data[, stat]/sigmaScale
+    fe[, "sd"] <- fe[, "sd"]/sigmaScale
+    fe[, stat] <- fe[, stat]/sigmaScale
   }
-  if (intercept == FALSE) {
-    data <- data[data$term != "(Intercept)", ]
-  }
-  data[, "sd"] <- data[, "sd"] * qnorm(1 - ((1 - level)/2))
-  data[, "ymax"] <- data[, stat] + data[, "sd"]
-  data[, "ymin"] <- data[, stat] - data[, "sd"]
+  fe[, "sd"] <- fe[, "sd"] * qnorm(1 - ((1 - level)/2))
+  fe[, "ymax"] <- fe[, stat] + fe[, "sd"]
+  fe[, "ymin"] <- fe[, stat] - fe[, "sd"]
   hlineInt <- 0
   if (oddsRatio == TRUE) {
-    data[, "ymax"] <- exp(data[, "ymax"])
-    data[, stat] <- exp(data[, stat])
-    data[, "ymin"] <- exp(data[, "ymin"])
+    fe[, "ymax"] <- exp(fe[, "ymax"])
+    fe[, stat] <- exp(fe[, stat])
+    fe[, "ymin"] <- exp(fe[, "ymin"])
     hlineInt <- 1
   }
   xvar <- "term"
-  data$term <- as.character(data$term)
-  data$term <- factor(data$term, levels = data[order(data[, stat]), 1])
+  fe$term <- as.character(fe$term)
+  fe$term <- factor(fe$term, levels = fe[order(fe[, stat]), 1])
   if (!is.na(taglv)) { 
     tmp <- NULL
     for (k in 1: length(taglv)) {
-      tmp <- rbind(tmp, dplyr::filter(data, tag == taglv[k]))
+      tmp <- rbind(tmp, dplyr::filter(fe, tag == taglv[k]))
     }
-    data <- tmp
-    data$tag <- factor(data$tag, levels = taglv)
+    fe <- tmp
+    fe$tag <- factor(fe$tag, levels = taglv)
   }
-  gcol <- rep("black",length(levels(data$term)))
-  gsize <- rep(1,length(levels(data$term)))
-  gltp <- rep(2,length(levels(data$term)))
+  gcol <- rep("black",length(levels(fe$term)))
+  gsize <- rep(1,length(levels(fe$term)))
+  gltp <- rep(2,length(levels(fe$term)))
   for (m in 1: length(glv)) {
-    gcol[levels(data$term) == glv[m]] <- gcode[m]
-    gsize[levels(data$term) == glv[m]] <- 4
+    gcol[levels(fe$term) == glv[m]] <- gcode[m]
+    gsize[levels(fe$term) == glv[m]] <- 4
   }
   llv <- c("Nov","Jul","EA","NV","WE")
   for (m in 1: length(llv)) {
-    gltp[levels(data$term) == llv[m]] <- 1
+    gltp[levels(fe$term) == llv[m]] <- 1
   }
-  p <- ggplot(aes_string(x = xvar, y = stat, ymax = "ymax", ymin = "ymin"), data = data) + 
+  p <- ggplot(aes_string(x = xvar, y = stat, ymax = "ymax", ymin = "ymin"), data = fe) + 
     geom_hline(yintercept = hlineInt, color = I("red")) +
     geom_point(aes(col = term, size = term)) + 
     labs(x = "Group", y = "Fixed Effect") + 
-    scale_color_manual("Group", breaks = levels(data$term), values = gcol) + 
-    scale_size_manual("Group", breaks = levels(data$term), values = gsize) + 
+    scale_color_manual("Group", breaks = levels(fe$term), values = gcol) + 
+    scale_size_manual("Group", breaks = levels(fe$term), values = gsize) + 
     facet_wrap(~ tag, ncol = ncol, scales = "free") +
     # coord_flip() + 
     theme_HL
   if (sd) {
     p <- p + geom_errorbar(aes(linetype = term), width = 0.2) +
-      scale_linetype_manual("Group", breaks = levels(data$term), values = gltp)
+      scale_linetype_manual("Group", breaks = levels(fe$term), values = gltp)
+  }
+  if(!missing(modinf)) {
+    p <- p + geom_text(x = 2, y = 5, label = "abc")
   }
   p
 }
@@ -184,7 +184,8 @@ plotFEsim2 <- function (data, level = 0.95, stat = "median", sd = TRUE, intercep
 multiElementMod <- function(dat, tag, fact, archiplot = TRUE, log = TRUE) {
   library(merTools);library(lsmeans);library(multcompView);library(ggplot2)
   
-  dat <- dat %>% gather(key = elem, value = resp, N:Pb); fe.g <- NULL; re.g <- NULL;
+  dat <- dat %>% gather(key = elem, value = resp, N:Pb); 
+  fe.g <- NULL; re.g <- NULL; modinf.g <- NULL
   for (i in 1:length(tag)) {
     mod <- modelCompare(dat, tag[i], fact, log = log)
     ## Fixed effect calculation
@@ -195,13 +196,21 @@ multiElementMod <- function(dat, tag, fact, archiplot = TRUE, log = TRUE) {
              width = 6, height = 4)
     }
     fe.g <- rbind(fe.g, cbind(fe, tag = tag[i]))
-    ## Random effect cal
-    
+    ## Random effect calculation
+    ## Model Stat information
+    nyma <- anova(mod)
+    nymb <- Anova(mod)
+    modinf.g <- rbind(modinf.g, cbind(nyma[,c(1,2,3)],Chisq = nymb[,1], Fvalue = nyma[,4],Pr = nymb[,3], 
+                                        FixedFact = row.names(nyma), tag = tag[i], 
+                                        model = paste(tag[i],"~",as.character(formula(mod@call))[3])))
   }
   if (log) write.csv(fe.g, "sediment/log/FixedEff.csv")
-  p.fe <- plotFEsim2(data = fe.g %>% filter(term != "(Intercept)") %>%
+  if (log) write.csv(statinf.g, "sediment/log/ModelStat.csv")
+  p.fe <- plotFEsim2(fe = fe.g %>% filter(term != "(Intercept)") %>%
                        mutate(term = gsub("group","",term)) %>% mutate(term = gsub("SplMonth","",term)), 
+                     modinf = modinf.g,
                      ncol = 2, taglv = c("N","Cu","Al","orgC"), glv = c("EA","WE"), gcode = c("#31B404","#013ADF"))
+  #statinf.g %>% group_by(tag) %>% summarise(model = unique(model))
   p.fe
 }
 
@@ -223,9 +232,7 @@ multiElementMod <- function(dat, tag, fact, archiplot = TRUE, log = TRUE) {
 
 
 
-anova(modd) -> a
-Anova(modd) -> b
-cbind(a[,c(1,2,3)],Chisq = b[,1], Fvalue = a[,4],Pr = b[,3], FixedFact = row.names(a))
+
 
 lsmeans::cld(lsmeans(object = modd, adjust = "tukey",
                      specs = pairwise ~ group + SplMonth),
