@@ -1,6 +1,7 @@
 ## clean ----
 rm(list = ls())
 library(dplyr);library(tidyr)
+theme_HL <- theme_bw() + theme(legend.position = "none", axis.text = element_text(angle = 30))
 
 ## Functions ----
 datareadln <- function() {
@@ -153,12 +154,12 @@ plotFEsim2 <- function (data, level = 0.95, stat = "median", sd = TRUE, intercep
     data <- tmp
     data$tag <- factor(data$tag, levels = taglv)
   }
-  gcol <- rep("black",length(data$term)/length(taglv))
-  gsize <- rep(1,length(data$term)/length(taglv))
-  gltp <- rep(2,length(data$term)/length(taglv))
+  gcol <- rep("black",length(levels(data$term)))
+  gsize <- rep(1,length(levels(data$term)))
+  gltp <- rep(2,length(levels(data$term)))
   for (m in 1: length(glv)) {
     gcol[levels(data$term) == glv[m]] <- gcode[m]
-    gsize[levels(data$term) == glv[m]] <- 3
+    gsize[levels(data$term) == glv[m]] <- 4
   }
   llv <- c("Nov","Jul","EA","NV","WE")
   for (m in 1: length(llv)) {
@@ -170,8 +171,9 @@ plotFEsim2 <- function (data, level = 0.95, stat = "median", sd = TRUE, intercep
     labs(x = "Group", y = "Fixed Effect") + 
     scale_color_manual("Group", breaks = levels(data$term), values = gcol) + 
     scale_size_manual("Group", breaks = levels(data$term), values = gsize) + 
-    facet_wrap(~ tag, ncol = ncol) +
-    coord_flip() + theme_bw() + theme(legend.position = "none")
+    facet_wrap(~ tag, ncol = ncol, scales = "free") +
+    # coord_flip() + 
+    theme_HL
   if (sd) {
     p <- p + geom_errorbar(aes(linetype = term), width = 0.2) +
       scale_linetype_manual("Group", breaks = levels(data$term), values = gltp)
@@ -179,12 +181,12 @@ plotFEsim2 <- function (data, level = 0.95, stat = "median", sd = TRUE, intercep
   p
 }
 
-multiElementMod <- function(dat, tag, fact, archiplot = TRUE) {
-  library(merTools);library(lsmeans);library(multcompView)
+multiElementMod <- function(dat, tag, fact, archiplot = TRUE, log = TRUE) {
+  library(merTools);library(lsmeans);library(multcompView);library(ggplot2)
   
   dat <- dat %>% gather(key = elem, value = resp, N:Pb); fe.g <- NULL; re.g <- NULL;
   for (i in 1:length(tag)) {
-    mod <- modelCompare(dat, tag[i], fact)
+    mod <- modelCompare(dat, tag[i], fact, log = log)
     ## Fixed effect calculation
     fe <- FEsim(mod)
     if (archiplot) {
@@ -192,18 +194,23 @@ multiElementMod <- function(dat, tag, fact, archiplot = TRUE) {
              paste("sediment/Fixeff/",tag,"_Fixeff.png",sep=""),
              width = 6, height = 4)
     }
-    fe.g <- rbind(fe.g, fe, elem[i])
+    fe.g <- rbind(fe.g, cbind(fe, tag = tag[i]))
     ## Random effect cal
     
   }
-  mod
+  if (log) write.csv(fe.g, "sediment/log/FixedEff.csv")
+  p.fe <- plotFEsim2(data = fe.g %>% filter(term != "(Intercept)") %>%
+                       mutate(term = gsub("group","",term)) %>% mutate(term = gsub("SplMonth","",term)), 
+                     ncol = 2, taglv = c("N","Cu","Al","orgC"), glv = c("EA","WE"), gcode = c("#31B404","#013ADF"))
+  p.fe
 }
 
 ## STAT begin ----
-meanseCal(datareadln())
+#meanseCal(datareadln())
 
 
-modd <- multiElementMod(datareadln() , tag = c("N"), 
+#modd <- 
+  multiElementMod(datareadln() , tag = c("N","Cu","Al","orgC"), archiplot = F, log = F,
                 fact = c("group + (1|SiteID)", 
                   "group + (1|SiteID:SplMonth)",
                   "group + (1|SiteID) + (1|SiteID:SplMonth)", 
