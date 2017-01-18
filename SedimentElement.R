@@ -132,64 +132,8 @@ plotFEsim2 <- function (fe, modinf = NULL, level = 0.95, stat = "mean", sd = TRU
   p
 }
 
-plotREsim2facet <- function (data, level = 0.95, stat = "median", sd = TRUE, sigmaScale = NULL, 
-                        oddsRatio = FALSE, labs = FALSE, taglv = NA, ncol) {
-  ## plotREsim2, modified from merTools::plotREsim
-  if (!missing(sigmaScale)) {
-    data[, "sd"] <- data[, "sd"]/sigmaScale
-    data[, stat] <- data[, stat]/sigmaScale
-  }
-  data[, "sd"] <- data[, "sd"] * qnorm(1 - ((1 - level)/2))
-  data[, "ymax"] <- data[, stat] + data[, "sd"]
-  data[, "ymin"] <- data[, stat] - data[, "sd"]
-  data[, "sig"] <- data[, "ymin"] > 0 | data[, "ymax"] < 0
-  hlineInt <- 0
-  if (oddsRatio == TRUE) {
-    data[, "ymax"] <- exp(data[, "ymax"])
-    data[, stat] <- exp(data[, stat])
-    data[, "ymin"] <- exp(data[, "ymin"])
-    hlineInt <- 1
-  }
-  #data <- data[order(data[, "groupFctr"], data[, "term"], data[,stat]), ]
-  #rownames(data) <- 1:nrow(data)
-  data[, "xvar"] <- factor(paste(data$groupFctr, data$groupID, 
-                                 sep = ""), levels = unique(paste(data$groupFctr, data$groupID, 
-                                                                  sep = "")), ordered = TRUE)
-  if (labs == TRUE) {
-    xlabs.tmp <- element_text(face = "bold", angle = 90, 
-                              vjust = 0.5)
-  }
-  else {
-    data[, "xvar"] <- as.numeric(data[, "xvar"])
-    xlabs.tmp <- element_blank()
-  }
-  if (!is.na(taglv)) { 
-    tmp <- NULL
-    for (k in 1: length(taglv)) {
-      tmp <- rbind(tmp, dplyr::filter(data, tag == taglv[k]))
-    }
-    data <- tmp
-    data$tag <- factor(data$tag, levels = taglv)
-  }
-  p <- ggplot(data, aes_string(x = "xvar", y = stat, ymax = "ymax", 
-                               ymin = "ymin")) +
-    geom_hline(yintercept = hlineInt, color = I("red"), size = I(1.1)) +
-    geom_point(color = "gray75", alpha = 1/(nrow(data)^0.33),  size = I(0.5)) +
-    geom_point(data = subset(data, sig ==  TRUE), size = I(3)) + 
-    labs(x = "Group", y = "Effect Range") + 
-    theme_bw() #+ theme(panel.grid.major = element_blank(), 
-  #        panel.grid.minor = element_blank(), axis.text.x = xlabs.tmp, 
-  #        axis.ticks.x = element_blank())
-  if (sd) {
-    p <- p + geom_pointrange(alpha = 1/(nrow(data)^0.33)) + 
-      geom_pointrange(data = subset(data, sig == TRUE), 
-                      alpha = 0.25)
-  }
-  p + facet_wrap(~tag + groupFctr, ncol = ncol, scales = "free")
-}
-
 plotFEsim2facet <- function (fe, modinf = NULL, level = 0.95, stat = "mean", sd = TRUE,  
-                        sigmaScale = NULL, oddsRatio = FALSE, taglv = NA, glv, gcode, ncol) {
+                        sigmaScale = NULL, oddsRatio = FALSE, taglv = NA, glv, gcode, ncol, theme) {
   ## plotFEsim2, modified from merTools::plotFEsim
   if (!missing(sigmaScale)) {
     fe[, "sd"] <- fe[, "sd"]/sigmaScale
@@ -206,8 +150,7 @@ plotFEsim2facet <- function (fe, modinf = NULL, level = 0.95, stat = "mean", sd 
     hlineInt <- 1
   }
   xvar <- "term"
-  fe$term <- as.character(fe$term)
-  fe$term <- factor(fe$term, levels = fe[order(fe[, stat]), 1])
+  fe$term <- factor(fe$term, levels = c("WE:Jul","WE:Nov","WE","Jul","Nov","EA","EA:Jul","EA:Nov"))
   if (!is.na(taglv)) { 
     tmp <- NULL
     for (k in 1: length(taglv)) {
@@ -218,10 +161,10 @@ plotFEsim2facet <- function (fe, modinf = NULL, level = 0.95, stat = "mean", sd 
   }
   gcol <- rep("black",length(levels(fe$term)))
   gsize <- rep(1,length(levels(fe$term)))
-  gltp <- rep(2,length(levels(fe$term)))
+  gltp <- rep(0.5,length(levels(fe$term)))
   for (m in 1: length(glv)) {
     gcol[levels(fe$term) == glv[m]] <- gcode[m]
-    gsize[levels(fe$term) == glv[m]] <- 4
+    gsize[levels(fe$term) == glv[m]] <- 2
   }
   llv <- c("Nov","Jul","EA","NV","WE")
   for (m in 1: length(llv)) {
@@ -235,10 +178,10 @@ plotFEsim2facet <- function (fe, modinf = NULL, level = 0.95, stat = "mean", sd 
     scale_size_manual("Group", breaks = levels(fe$term), values = gsize) + 
     facet_wrap(~ tag, ncol = ncol, scales = "free") +
     # coord_flip() + 
-    theme_HL
+    theme
   if (sd) {
-    p <- p + geom_errorbar(aes(linetype = term), width = 0.2) +
-      scale_linetype_manual("Group", breaks = levels(fe$term), values = gltp)
+    p <- p + geom_errorbar(aes(alpha = term), width = 0.2) +
+      scale_alpha_manual("Group", breaks = levels(fe$term), values = gltp)
   }
   if(!missing(modinf)) {
     p <- p + geom_text(x = 2, y = 5, label = "abc")
@@ -246,20 +189,7 @@ plotFEsim2facet <- function (fe, modinf = NULL, level = 0.95, stat = "mean", sd 
   p
 }
 
-multiElementMod <- function(dat, 
-                            fact = c("group + (1|SiteID)", 
-                                           "group + (1|SiteID:SplMonth)",
-                                           "group + (1|SiteID) + (1|SiteID:SplMonth)", 
-                                           "group + SplMonth + (1|SiteID)",
-                                           "group + SplMonth + (1|SiteID:SplMonth)",
-                                           "group + SplMonth + (1|SiteID) + (1|SiteID:SplMonth)",
-                                           "group * SplMonth + (1|SiteID)",
-                                           "group * SplMonth + (1|SiteID:SplMonth)",
-                                           "group * SplMonth + (1|SiteID) + (1|SiteID:SplMonth)"),
-                            SplMonthlv = c("Apr","Jul","Nov"), grouplv = c("EA","CL","WE"), 
-                            glv = c("EA","WE"), gcode = c("#31B404","#013ADF"),
-                            tag = c("N","C","orgC","S","P","Al","Fe","Mn","Cu","Zn","Ni","Cr","Pb","As","Cd"),
-                            archiplot = TRUE, log = TRUE) {
+multiElementMod <- function(dat, fact, SplMonthlv, grouplv, glv, gcode, tag, archiplot = TRUE, log = TRUE) {
   library(merTools);library(lsmeans);library(multcompView);library(car);library(ggplot2)
   fe.g <- NULL; re.g <- NULL; modinf.g <- NULL; shapiro.g <- NULL; posthoc.g <- NULL; modavo.g <- NULL; 
   resid.g <- NULL;
@@ -339,7 +269,33 @@ multiElementMod <- function(dat,
 meanseCal(datareadln())
 
 ## LMM fiting and ploting ----
-multiElementMod(dat = datareadln() %>% gather(key = elem, value = resp, N:Pb))
+multiElementMod(dat = datareadln() %>% gather(key = elem, value = resp, N:Pb),
+                fact = c("group + (1|SiteID)", 
+                         "group + (1|SiteID:SplMonth)",
+                         "group + (1|SiteID) + (1|SiteID:SplMonth)", 
+                         "group + SplMonth + (1|SiteID)",
+                         "group + SplMonth + (1|SiteID:SplMonth)",
+                         "group + SplMonth + (1|SiteID) + (1|SiteID:SplMonth)",
+                         "group * SplMonth + (1|SiteID)",
+                         "group * SplMonth + (1|SiteID:SplMonth)",
+                         "group * SplMonth + (1|SiteID) + (1|SiteID:SplMonth)"),
+                SplMonthlv = c("Apr","Jul","Nov"), grouplv = c("EA","CL","WE"), 
+                glv = c("EA","WE"), gcode = c("#31B404","#013ADF"),
+                tag = c("N","C","orgC","S","P","Al","Fe","Mn","Cu","Zn","Ni","Cr","Pb","As","Cd"))
+
+## gather ploting 
+ggsave(plot = plotFEsim2facet(read.csv("sediment/log/FixedEff.csv") %>% 
+                           filter(term != "(Intercept)") %>% 
+                           mutate(term = gsub("group","",term)) %>% 
+                           mutate(term = gsub("SplMonth","",term)),
+                         glv = c("EA","WE"), gcode = c("#31B404","#013ADF"), ncol = 5,
+                         theme = theme_bw() + theme(legend.position = "none",
+                                                    axis.text = element_text(size= 4,angle = 30),
+                                                    axis.title = element_text(size= 6),
+                                                    strip.text = element_text(size= 6))), 
+       "sediment/plot/Fixeff.png",
+       width = 6, height = 4, dpi = 600)
+
 
 
 ## Two-way anova ----
