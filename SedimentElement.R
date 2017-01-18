@@ -38,14 +38,27 @@ meanseCal <- function(dat) { ## calulate and output mean and se
     write.csv("sediment/log/SedimentElement.csv")
 }
 
-modelCompare <- function(dat, tag, fact, log = TRUE) {
-  library(lme4);library(car)
-  if (!file.exists("sediment/log/SedimentElementModel.csv")) {
-    write.table(t(c("Df","AIC","BIC","Loglik","deviance","Chisq","ChiDf","Pr(>Chisq)","model","ref","result","time")),
-                file = "sediment/log/SedimentElementModel.csv", sep = ",", row.names = F, col.names = F)
-  }
+shapiroTest <- function(dat, tag, grouplv, SplMonthlv) {
   dat <- dat %>% filter(elem == tag) %>% filter(!is.na(resp))
-  formulaList <- NULL
+  shapiro <- NULL
+  for(i in 1:length(grouplv)) {
+    for(j in 1:length(SplMonthlv)) {
+      subdat <- dat %>% filter(group == grouplv[i]) %>% filter(SplMonth == SplMonthlv[j])
+      result <- stats::shapiro.test(subdat$resp)
+      shapiro <- rbind(shapiro, data.frame(tag = tag,
+                                      group = grouplv[i],
+                                      SplMonth = SplMonthlv[j],
+                                      W = result$statistic,
+                                      Pvalue = result$p.value))
+    }
+  }
+  shapiro
+}
+
+modelCompare <- function(dat, tag, fact, log = TRUE) {
+  library(lme4)
+  dat <- dat %>% filter(elem == tag) %>% filter(!is.na(resp))
+  formulaList <- NULL; modlog <- NULL
   for (j in 1:length(fact)) {
     formulaList <- c(formulaList, as.formula(paste("resp","~",fact[j])))
   }
@@ -55,14 +68,20 @@ modelCompare <- function(dat, tag, fact, log = TRUE) {
     comp <- anova(mod.champion, mod.challenger)
     mod <- as.character(formula(mod.champion@call))[3]
     modp <- as.character(formula(mod.challenger@call))[3]
-    if(log) write.table(cbind(comp,
-                              model = c(paste(tag,"~",mod),paste(tag,"~",modp)),
-                              ref = c("champion", "challenger"),
-                              result = if (comp$AIC[2] < comp$AIC[1]) c("", "Win") else c("Win", ""),
-                              time = date()) ,
-                        file = "sediment/log/SedimentElementModel.csv", 
-                        append = T, sep = ",", row.names = F, col.names = F)
+    modlog <- rbind(modlog, cbind(comp,
+                                  model = c(paste(tag,"~",mod),paste(tag,"~",modp)),
+                                  ref = c("champion", "challenger"),
+                                  result = if (comp$AIC[2] < comp$AIC[1]) c("", "Win") else c("Win", ""),
+                                  time = date())) 
     if (comp$AIC[2] < comp$AIC[1]) mod.champion <- mod.challenger
+  }
+  if (!file.exists("sediment/log/SedimentElementModel.csv")) {
+    write.table(t(c("Df","AIC","BIC","Loglik","deviance","Chisq","ChiDf","Pr(>Chisq)","model","ref","result","time")),
+                file = "sediment/log/SedimentElementModel.csv", sep = ",", row.names = F, col.names = F)
+  } 
+  if(log) {
+    write.table(modlog, append = T, sep = ",", row.names = F, col.names = F,
+                file = "sediment/log/SedimentElementModel.csv")
   }
   mod.champion
 }
@@ -182,8 +201,7 @@ plotFEsim2 <- function (fe, modinf = NULL, level = 0.95, stat = "mean", sd = TRU
 }
 
 multiElementMod <- function(dat, tag, fact, archiplot = TRUE, log = TRUE) {
-  library(merTools);library(lsmeans);library(multcompView);library(ggplot2)
-  
+  library(merTools);library(lsmeans);library(multcompView);library(ggplot2);library(car)
   dat <- dat %>% gather(key = elem, value = resp, N:Pb); 
   fe.g <- NULL; re.g <- NULL; modinf.g <- NULL
   for (i in 1:length(tag)) {
@@ -206,32 +224,38 @@ multiElementMod <- function(dat, tag, fact, archiplot = TRUE, log = TRUE) {
   }
   if (log) write.csv(fe.g, "sediment/log/FixedEff.csv")
   if (log) write.csv(statinf.g, "sediment/log/ModelStat.csv")
-  p.fe <- plotFEsim2(fe = fe.g %>% filter(term != "(Intercept)") %>%
-                       mutate(term = gsub("group","",term)) %>% mutate(term = gsub("SplMonth","",term)), 
-                     modinf = modinf.g,
-                     ncol = 2, taglv = c("N","Cu","Al","orgC"), glv = c("EA","WE"), gcode = c("#31B404","#013ADF"))
+  #p.fe <- plotFEsim2(fe = fe.g %>% filter(term != "(Intercept)") %>%
+  #                     mutate(term = gsub("group","",term)) %>% mutate(term = gsub("SplMonth","",term)), 
+  #                   modinf = modinf.g,
+  #                   ncol = 2, taglv = c("N","Cu","Al","orgC"), glv = c("EA","WE"), gcode = c("#31B404","#013ADF"))
   #statinf.g %>% group_by(tag) %>% summarise(model = unique(model))
-  p.fe
+  mod
 }
 
 ## STAT begin ----
-#meanseCal(datareadln())
+meanseCal(datareadln())
 
 
-#modd <- 
-  multiElementMod(datareadln() , tag = c("N","Cu","Al","orgC"), archiplot = F, log = F,
-                fact = c("group + (1|SiteID)", 
-                  "group + (1|SiteID:SplMonth)",
-                  "group + (1|SiteID) + (1|SiteID:SplMonth)", 
-                  "group + SplMonth + (1|SiteID)",
-                  "group + SplMonth + (1|SiteID:SplMonth)",
-                  "group + SplMonth + (1|SiteID) + (1|SiteID:SplMonth)",
-                  "group * SplMonth + (1|SiteID)",
-                  "group * SplMonth + (1|SiteID:SplMonth)",
-                  "group * SplMonth + (1|SiteID) + (1|SiteID:SplMonth)"))
+## LMM fiting and ploting ----
+fact <- c("group + (1|SiteID)", 
+          "group + (1|SiteID:SplMonth)",
+          "group + (1|SiteID) + (1|SiteID:SplMonth)", 
+          "group + SplMonth + (1|SiteID)",
+          "group + SplMonth + (1|SiteID:SplMonth)",
+          "group + SplMonth + (1|SiteID) + (1|SiteID:SplMonth)",
+          "group * SplMonth + (1|SiteID)",
+          "group * SplMonth + (1|SiteID:SplMonth)",
+          "group * SplMonth + (1|SiteID) + (1|SiteID:SplMonth)")
+SplMonthlv <- c("Apr","Jul","Nov")
+grouplv <- c("EA","CL","WE")
+fe.g <- NULL; re.g <- NULL; modinf.g <- NULL; shapiro.g <- NULL; posthoc.g <- NULL
+dat <- datareadln() %>% gather(key = elem, value = resp, N:Pb)
 
+#N 
+shapiroTest(dat = dat, tag = "N", grouplv = grouplv, SplMonthlv = SplMonthlv) -> shapiro
+shapiro.g <- rbind(shapiro.g, shapiro)
 
-
+mod <- modelCompare(dat = dat, tag = "N", fact = fact)
 
 
 lsmeans::cld(lsmeans(object = modd, adjust = "tukey",
