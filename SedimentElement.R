@@ -86,7 +86,7 @@ modelCompare <- function(dat, tag, fact, log = TRUE) {
 }
 
 plotFEsim2 <- function (fe, modinf = NULL, level = 0.95, stat = "mean", sd = TRUE,  
-                        sigmaScale = NULL, oddsRatio = FALSE, glv, gcode) {
+                        sigmaScale = NULL, oddsRatio = FALSE, glv, gcode, theme) {
   ## plotFEsim2, modified from merTools::plotFEsim
   if (!missing(sigmaScale)) {
     fe[, "sd"] <- fe[, "sd"]/sigmaScale
@@ -124,7 +124,7 @@ plotFEsim2 <- function (fe, modinf = NULL, level = 0.95, stat = "mean", sd = TRU
     scale_color_manual("Group", breaks = levels(fe$term), values = gcol) + 
     scale_size_manual("Group", breaks = levels(fe$term), values = gsize) + 
     coord_flip() + 
-    theme_HL
+    theme
   if (sd) {
     p <- p + geom_errorbar(aes(linetype = term), width = 0.2) +
       scale_linetype_manual("Group", breaks = levels(fe$term), values = gltp)
@@ -259,13 +259,11 @@ multiElementMod <- function(dat,
                             SplMonthlv = c("Apr","Jul","Nov"), grouplv = c("EA","CL","WE"), 
                             glv = c("EA","WE"), gcode = c("#31B404","#013ADF"),
                             tag = c("N","C","orgC","S","P","Al","Fe","Mn","Cu","Zn","Ni","Cr","Pb","As","Cd"),
-                            theme_HL = theme_bw() + 
-                              theme(legend.position = "none",
-                                    axis.text = element_text(angle = 30)),
                             archiplot = TRUE, log = TRUE) {
-  library(merTools);library(lsmeans);library(multcompView);library(car)
+  library(merTools);library(lsmeans);library(multcompView);library(car);library(ggplot2)
   fe.g <- NULL; re.g <- NULL; modinf.g <- NULL; shapiro.g <- NULL; posthoc.g <- NULL; modavo.g <- NULL; 
   resid.g <- NULL;
+  theme_HL <- theme_bw() + theme(legend.position = "none",axis.text = element_text(angle = 30))
   for (i in 1:length(tag)) {
     
     #shapiro
@@ -287,9 +285,16 @@ multiElementMod <- function(dat,
     modavo.g <- rbind(modavo.g, cbind(modavo, tag[i]))
     
     #posthoc
-    lsmeans::cld(lsmeans(object = mod, adjust = "tukey",
-                         specs = pairwise ~ group + SplMonth),
-                 Letters = LETTERS) -> posthoc; print(posthoc); 
+    if (dim(nyma) != 1){
+      lsmeans::cld(lsmeans(object = mod, adjust = "tukey",
+                           specs = pairwise ~ group + SplMonth),
+                   Letters = LETTERS) -> posthoc
+    } else {
+      lsmeans::cld(lsmeans(object = mod, adjust = "tukey",
+                           specs = pairwise ~ group),
+                   Letters = LETTERS) -> posthoc
+    }
+    print(posthoc)
     posthoc.g <- rbind(posthoc.g,cbind(posthoc, tag[i]))
     
     # fe
@@ -298,7 +303,7 @@ multiElementMod <- function(dat,
     ggsave(plot = plotFEsim2(fe%>% filter(term != "(Intercept)") %>%
                                mutate(term = gsub("group","",term)) %>% 
                                mutate(term = gsub("SplMonth","",term)),
-                             glv = glv, gcode = gcode), 
+                             glv = glv, gcode = gcode, theme = theme_HL), 
            paste("sediment/plot/",tag[i],"_Fixeff.png",sep=""),
            width = 6, height = 4)
     #re

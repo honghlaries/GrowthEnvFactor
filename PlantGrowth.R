@@ -1,28 +1,41 @@
 ## clean ----
 rm(list = ls())
+library(dplyr);library(tidyr)
 
-## package loading ----
-library(dplyr)
-library(tidyr)
-library(agricolae)
-library(ggplot2)
-
-## functions ----
+## Functions ----
 datareadln <- function() {
-  library(dplyr)
-  library(tidyr)
-    read.csv("./Data/Result_PlantTillerGrowthSummary.csv") %>%
-    inner_join(read.csv("./Data/meta_PlantSampleList.csv"), by = c("SplNo" = "SplNo")) %>%
-    right_join(read.csv("./Data/meta_Quadrat.csv"), by = c("QudNo" = "QudNo")) %>%
-    inner_join(read.csv("./Data/meta_SiteGroup.csv"), by = c("SiteID" = "SiteID"))%>%
-    filter(group != "NV") %>%
+  read.csv("./Data/Result_PlantTillerGrowthSummary.csv") %>%
+    dplyr::inner_join(read.csv("./Data/meta_PlantSampleList.csv"), by = c("SplNo" = "SplNo")) %>%
+    dplyr::right_join(read.csv("./Data/meta_Quadrat.csv"), by = c("QudNo" = "QudNo")) %>%
+    dplyr::inner_join(read.csv("./Data/meta_SiteGroup.csv"), by = c("SiteID" = "SiteID"))%>%
+    dplyr::filter(group != "NV") %>% 
+    dplyr::select(Number:Seed_rate,SiteID,SplMonth,group) %>%
     return()
 }
 
-removezerose <- function(se) {
-  if(se == 0) NA else se %>%
-    return()
+meanseCal <- function(dat) { ## calulate and output mean and se
+  se <- function(v) {
+    if(length(v) < 2) {NA} else {sd(v, na.rm = T)/sqrt(length(v)-sum(is.na(v)))}
+  }
+  dat %>%
+    dplyr::group_by(SiteID, group, SplMonth) %>%
+    dplyr::summarise(Density_avg = mean(Number,na.rm = T) * 4,Density_se = se(Number) * 4,
+                     Height_avg = mean(Height_mean,na.rm = T),Height_se = se(Height_mean),
+                     BsDmr_avg = mean(BsDmr_mean,na.rm = T),BsDmr_se = se(BsDmr_mean),
+                     LvThk_avg = mean(LvThk_mean,na.rm = T),LvThk_se = se(LvThk_mean),
+                     LvCt_avg = mean(LvCt_mean,na.rm = T),LvCt_se = se(LvCt_mean),
+                     LvCtG_avg = mean(LvCtG_mean,na.rm = T),LvCtG_se = se(LvCtG_mean),
+                     LvCtY_avg = mean(LvCtY_mean,na.rm = T),LvCtY_se = se(LvCtY_mean),
+                     TlrWg_avg = mean(TlrWg_mean,na.rm = T),TlrWg_se = se(TlrWg_mean),
+                     LvWg_avg = mean(LvWgG_mean,na.rm = T),LvWg_se = se(LvWgG_mean),
+                     StWg_avg = mean(StWg_mean,na.rm = T),StWg_se = se(StWg_mean),
+                     SeedRate_avg = mean(Seed_rate,na.rm = T),SeedRate_se = se(Seed_rate)) %>%
+    write.csv("growth/log/GrowthTraits.csv")
 }
+
+
+## Basic Stat information ----
+meanseCal(datareadln())
 
 ## calculation ----
 datareadln() %>% 
