@@ -12,14 +12,14 @@ datareadln <- function() {
     dplyr::select(SiteID,SplMonth,group,
                   Density = Number *4,
                   Height = Height_mean,
-                  BsDmr = BsDmr_mean,
-                  LvThk = LvThk_mean,
-                  LvCt = LvCt_mean,
-                  LvCtG = LvCtG_mean,
-                  LvCtY = LvCtY_mean,
-                  TlrWg = TlrWg_mean,
-                  LvWgG = LvWgG_mean,
-                  StWg = StWg_mean,
+                  BasalDiameter = BsDmr_mean,
+                  LeafThickness = LvThk_mean,
+                  LeafCount = LvCt_mean,
+                  GreenLeafCount = LvCtG_mean,
+                  FallenLeafCount = LvCtY_mean,
+                  AboveGroundBiomass = TlrWg_mean,
+                  LeafBiomass = LvWgG_mean,
+                  StemBiomass = StWg_mean,
                   SeedRate = Seed_rate) 
 }
 
@@ -31,14 +31,14 @@ meanseCal <- function(dat) { ## calulate and output mean and se
     dplyr::group_by(SiteID, group, SplMonth) %>%
     dplyr::summarise(Density_avg = mean(Density,na.rm = T),Density_se = se(Density),
                      Height_avg = mean(Height,na.rm = T),Height_se = se(Height),
-                     BsDmr_avg = mean(BsDmr,na.rm = T),BsDmr_se = se(BsDmr),
-                     LvThk_avg = mean(LvThk,na.rm = T),LvThk_se = se(LvThk),
-                     LvCt_avg = mean(LvCt,na.rm = T),LvCt_se = se(LvCt),
-                     LvCtG_avg = mean(LvCtG,na.rm = T),LvCtG_se = se(LvCtG),
-                     LvCtY_avg = mean(LvCtY,na.rm = T),LvCtY_se = se(LvCtY),
-                     TlrWg_avg = mean(TlrWg,na.rm = T),TlrWg_se = se(TlrWg),
-                     LvWg_avg = mean(LvWgG,na.rm = T),LvWg_se = se(LvWgG),
-                     StWg_avg = mean(StWg,na.rm = T),StWg_se = se(StWg),
+                     BasalDiameter_avg = mean(BasalDiameter,na.rm = T),BasalDiameter_se = se(BasalDiameter),
+                     LeafThickness_avg = mean(LeafThickness,na.rm = T),LeafThickness_se = se(LeafThickness),
+                     LeafCount_avg = mean(LeafCount,na.rm = T),LeafCount_se = se(LeafCount),
+                     GreenLeafCount_avg = mean(GreenLeafCount,na.rm = T),GreenLeafCount_se = se(GreenLeafCount),
+                     FallenLeafCount_avg = mean(FallenLeafCount,na.rm = T),FallenLeafCount_se = se(FallenLeafCount),
+                     AboveGroundBiomass_avg = mean(AboveGroundBiomass,na.rm = T),AboveGroundBiomass_se = se(AboveGroundBiomass),
+                     LeafBiomass_avg = mean(LeafBiomass,na.rm = T),LeafBiomass = se(LeafBiomass),
+                     StemBiomass_avg = mean(StemBiomass,na.rm = T),StemBiomass_se = se(StemBiomass),
                      SeedRate_avg = mean(SeedRate,na.rm = T),SeedRate_se = se(SeedRate)) %>%
     write.csv("growth/log/GrowthTraits.csv")
 }
@@ -319,9 +319,11 @@ multiGrowthMod(dat = datareadln() %>% gather(key = traits, value = resp, Density
                          "group * SplMonth + (1|SiteID) + (1|SiteID:SplMonth)"),
                 SplMonthlv = c("Apr","Jul","Nov"), grouplv = c("EA","CL","WE"), 
                 glv = c("EA","WE"), gcode = c("#31B404","#013ADF"),
-               tag = c("Density","Height","BsDmr","TlrWg"), suffix = "_ajn")
+               tag = c("Density","Height","BasalDiameter","AboveGroundBiomass"), suffix = "_ajn")
 
-multiGrowthMod(dat = datareadln() %>% gather(key = traits, value = resp, Density:SeedRate),
+multiGrowthMod(dat = datareadln() %>% 
+                 gather(key = traits, value = resp, Density:SeedRate) %>%
+                 filter(SplMonth != "Apr"),
                fact = c("group + (1|SiteID)",
                         "SplMonth + (1|SiteID)",
                         "group + (1|SiteID:SplMonth)",
@@ -334,26 +336,19 @@ multiGrowthMod(dat = datareadln() %>% gather(key = traits, value = resp, Density
                         "group * SplMonth + (1|SiteID)",
                         "group * SplMonth + (1|SiteID:SplMonth)",
                         "group * SplMonth + (1|SiteID) + (1|SiteID:SplMonth)"),
-               SplMonthlv = c("Apr","Jul","Nov"), grouplv = c("EA","CL","WE"), 
+               SplMonthlv = c("Jul","Nov"), grouplv = c("EA","CL","WE"), 
                glv = c("EA","WE"), gcode = c("#31B404","#013ADF"),
-               tag = c("LvThk","LvCt","LvWgG","StWg"), suffix = "_jn")
+               tag = c("LeafThickness","GreenLeafCount","LeafBiomass","StemBiomass"), suffix = "_jn")
 
-multiGrowthMod(dat = datareadln() %>% gather(key = traits, value = resp, Density:SeedRate),
+multiGrowthMod(dat = datareadln() %>% 
+                 gather(key = traits, value = resp, Density:SeedRate) %>%
+                 filter(SplMonth == "Nov"),
                fact = c("group + (1|SiteID)",
-                        "SplMonth + (1|SiteID)",
-                        "group + (1|SiteID:SplMonth)",
-                        "SplMonth + (1|SiteID:SplMonth)",
-                        "group + (1|SiteID) + (1|SiteID:SplMonth)",
-                        "SplMonth + (1|SiteID) + (1|SiteID:SplMonth)",
-                        "group + SplMonth + (1|SiteID)",
-                        "group + SplMonth + (1|SiteID:SplMonth)",
-                        "group + SplMonth + (1|SiteID) + (1|SiteID:SplMonth)",
-                        "group * SplMonth + (1|SiteID)",
-                        "group * SplMonth + (1|SiteID:SplMonth)",
-                        "group * SplMonth + (1|SiteID) + (1|SiteID:SplMonth)"),
-               SplMonthlv = c("Apr","Jul","Nov"), grouplv = c("EA","CL","WE"), 
+                        "group + (1|SiteID)"),
+               SplMonthlv = c("Nov"), grouplv = c("EA","CL","WE"), 
                glv = c("EA","WE"), gcode = c("#31B404","#013ADF"),
-               tag = c("LvCtY","SeedRate"), suffix = "_n")
+               tag = c("FallenLeafCount","SeedRate"), suffix = "_n")
+
 
 ## Gather ploting ----
 ggsave(plot = plotFEsim2facet(read.csv("growth/log/FixedEff_ajn.csv") %>% 
@@ -390,7 +385,7 @@ ggsave(plot = plotFEsim2facet(read.csv("growth/log/FixedEff_n.csv") %>%
                                                          axis.title = element_text(size= 6),
                                                          strip.text = element_text(size= 6))), 
        "growth/plot/Fixeff_n.png",
-       width = 6, height = 3, dpi = 600)
+       width = 6, height = 2, dpi = 600)
 
 
 ## Two-way anova ----
