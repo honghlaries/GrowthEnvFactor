@@ -189,11 +189,13 @@ plotFEsim2facet <- function (fe, modinf = NULL, level = 0.95, stat = "mean", sd 
   p
 }
 
-multiElementMod <- function(dat, fact, SplMonthlv, grouplv, glv, gcode, tag, archiplot = TRUE, log = TRUE) {
+multiElementMod <- function(dat, fact, SplMonthlv, grouplv, glv, gcode, 
+                            tag = NULL, suffix = "", archiplot = TRUE, log = TRUE) {
   library(merTools);library(lsmeans);library(multcompView);library(car);library(ggplot2);library(lattice)
   fe.g <- NULL; re.g <- NULL; modinf.g <- NULL; shapiro.g <- NULL; posthoc.g <- NULL; modavo.g <- NULL; 
   resid.g <- NULL;
   theme_HL <- theme_bw() + theme(legend.position = "none",axis.text = element_text(angle = 30))
+  if(missing(tag)) tag <- unique(dat$elem)
   for (i in 1:length(tag)) {
     
     #shapiro
@@ -279,13 +281,13 @@ multiElementMod <- function(dat, fact, SplMonthlv, grouplv, glv, gcode, tag, arc
                                 Pvalue = resid$p.value))
   }
   ## output
-  if (log) {write.csv(fe.g, "sediment/log/FixedEff.csv", row.names = F)
-    write.csv(re.g, "sediment/log/RandomEff.csv", row.names = F)
-    write.csv(modinf.g, "sediment/log/ModelChoice.csv", row.names = F) 
-    write.csv(shapiro.g, "sediment/log/ShapiroRawData.csv", row.names = F) 
-    write.csv(posthoc.g, "sediment/log/Posthoc.csv", row.names = F) 
-    write.csv(modavo.g, "sediment/log/ModelAnova.csv", row.names = F) 
-    write.csv(resid.g, "sediment/log/ShapiroResid.csv", row.names = F)
+  if (log) {write.csv(x = fe.g, file = paste("sediment/log/FixedEff",suffix,".csv",sep = ""), row.names = F)
+    write.csv(x = re.g, file = paste("sediment/log/RandomEff",suffix,".csv",sep = ""), row.names = F)
+    write.csv(x = modinf.g, file = paste("sediment/log/ModelChoice",suffix,".csv",sep = ""), row.names = F) 
+    write.csv(x = shapiro.g, file = paste("sediment/log/ShapiroRawData",suffix,".csv",sep = ""), row.names = F) 
+    write.csv(x = posthoc.g, file = paste("sediment/log/Posthoc",suffix,".csv",sep = ""), row.names = F) 
+    write.csv(x = modavo.g, file = paste("sediment/log/ModelAnova",suffix,".csv",sep = ""), row.names = F) 
+    write.csv(x = resid.g, file = paste("sediment/log/ShapiroResid",suffix,".csv",sep = ""), row.names = F)
   }
   "DONE!"
 }
@@ -308,8 +310,7 @@ multiElementMod(dat = datareadln() %>% gather(key = elem, value = resp, N:Pb),
                          "group * SplMonth + (1|SiteID:SplMonth)",
                          "group * SplMonth + (1|SiteID) + (1|SiteID:SplMonth)"),
                 SplMonthlv = c("Apr","Jul","Nov"), grouplv = c("EA","CL","WE"), 
-                glv = c("EA","WE"), gcode = c("#31B404","#013ADF"),
-                tag = c("N","C","orgC","S","P","Al","Fe","Mn","Cu","Zn","Ni","Cr","Pb","As","Cd"))
+                glv = c("EA","WE"), gcode = c("#31B404","#013ADF"))
 
 ## Gather ploting ----
 ggsave(plot = plotFEsim2facet(read.csv("sediment/log/FixedEff.csv") %>% 
