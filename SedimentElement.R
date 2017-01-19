@@ -216,6 +216,10 @@ multiElementMod <- function(dat, fact, SplMonthlv, grouplv, glv, gcode, tag, arc
     
     #posthoc
     modfact <- strsplit(as.character(formula(mod@call))[3],"+", fixed = TRUE)[[1]]
+    if (grepl('*', modfact[1], fixed = TRUE)) {
+      modfact <- strsplit(modfact[1],"*", fixed = TRUE)[[1]]
+    }
+    modfact <- strsplit(as.character(formula(mod@call))[3],"+", fixed = TRUE)[[1]]
     modfxfact <-  modfact[!grepl('(', modfact, fixed = TRUE)]
     modfxfm <- if(length(modfxfact) == 1) {modfxfact[1]} else {paste(modfxfact[1],modfxfact[2],sep = "+")}
     posthoc <-lsmeans::cld(lsmeans(object = mod, adjust = "tukey",
