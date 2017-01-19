@@ -215,16 +215,22 @@ multiElementMod <- function(dat, fact, SplMonthlv, grouplv, glv, gcode, tag, arc
     modavo.g <- rbind(modavo.g, cbind(modavo, tag[i]))
     
     #posthoc
-    if (dim(nyma) != 1){
-      lsmeans::cld(lsmeans(object = mod, adjust = "tukey",
-                           specs = pairwise ~ group + SplMonth),
-                   Letters = LETTERS) -> posthoc
-    } else {
-      lsmeans::cld(lsmeans(object = mod, adjust = "tukey",
-                           specs = pairwise ~ group),
-                   Letters = LETTERS) -> posthoc
+    modfact <- strsplit(as.character(formula(mod@call))[3],"+", fixed = TRUE)[[1]]
+    modfxfact <-  modfact[!grepl('(', modfact, fixed = TRUE)]
+    modfxfm <- if(length(modfxfact) == 1) {modfxfact[1]} else {paste(modfxfact[1],modfxfact[2],sep = "+")}
+    posthoc <-lsmeans::cld(lsmeans(object = mod, adjust = "tukey",
+                           specs = as.formula(paste("pairwise~",modfxfm))),
+                   Letters = LETTERS) 
+    print(posthoc) 
+    if(length(modfxfact) == 1) {
+      if (modfxfact == "group ") {
+        posthoc <- cbind(posthoc, SplMonth = NA)
+      } else {
+        if (modfxfact == "SplMonth ") {
+          posthoc <- cbind(posthoc, group = NA)
+        } else {stop("Kidding me?")}
+      }
     }
-    print(posthoc)
     posthoc.g <- rbind(posthoc.g,cbind(posthoc, tag[i]))
     
     # fe
@@ -251,18 +257,18 @@ multiElementMod <- function(dat, fact, SplMonthlv, grouplv, glv, gcode, tag, arc
         width = 30, height = 20, units = "cm", res = 600)
     print(qqmath(mod, id = 0.05))
     dev.off()
-    png(paste("sediment/plot/",tag[i],"_diag_zeta.png",sep=""), 
-        width = 30, height = 20, units = "cm", res = 600)
-    print(xyplot(mod))
-    dev.off()
-    png(paste("sediment/plot/",tag[i],"_diag_dens.png",sep=""), 
-        width = 30, height = 20, units = "cm", res = 600)
-    print(densityplot(mod))
-    dev.off()
-    png(paste("sediment/plot/",tag[i],"_diag_pair.png",sep=""), 
-        width = 30, height = 20, units = "cm", res = 600)
-    print(splom(mod))
-    dev.off()
+    #png(paste("sediment/plot/",tag[i],"_diag_zeta.png",sep=""), 
+    #    width = 30, height = 20, units = "cm", res = 600)
+    #something using xyplot
+    #dev.off()
+    #png(paste("sediment/plot/",tag[i],"_diag_dens.png",sep=""), 
+    #    width = 30, height = 20, units = "cm", res = 600)
+    #something using densityplot
+    #dev.off()
+    #png(paste("sediment/plot/",tag[i],"_diag_pair.png",sep=""), 
+    #    width = 30, height = 20, units = "cm", res = 600)
+    #something using splom
+    #dev.off()
     stats::shapiro.test(resid(mod)) -> resid
     resid.g <- rbind(resid.g, 
                      data.frame(tag = tag[i],
@@ -302,7 +308,7 @@ multiElementMod(dat = datareadln() %>% gather(key = elem, value = resp, N:Pb),
                 glv = c("EA","WE"), gcode = c("#31B404","#013ADF"),
                 tag = c("N","C","orgC","S","P","Al","Fe","Mn","Cu","Zn","Ni","Cr","Pb","As","Cd"))
 
-## gather ploting 
+## Gather ploting ----
 ggsave(plot = plotFEsim2facet(read.csv("sediment/log/FixedEff.csv") %>% 
                            filter(term != "(Intercept)") %>% 
                            mutate(term = gsub("group","",term)) %>% 

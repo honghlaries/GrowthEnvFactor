@@ -9,8 +9,17 @@ datareadln <- function() {
     dplyr::right_join(read.csv("./Data/meta_Quadrat.csv"), by = c("QudNo" = "QudNo")) %>%
     dplyr::inner_join(read.csv("./Data/meta_SiteGroup.csv"), by = c("SiteID" = "SiteID"))%>%
     dplyr::filter(group != "NV") %>% 
-    dplyr::select(Number:Seed_rate,SiteID,SplMonth,group) %>%
-    return()
+    dplyr::select(SiteID,SplMonth,group,Number,
+                  Height = Height_mean,
+                  BsDmr = BsDmr_mean,
+                  LvThk = LvThk_mean,
+                  LvCt = LvCt_mean,
+                  LvCtG = LvCtG_mean,
+                  LvCtY = LvCtY_mean,
+                  TlrWg = TlrWg_mean,
+                  LvWgG = LvWgG_mean,
+                  StWg = StWg_mean,
+                  SeedRate = Seed_rate) 
 }
 
 meanseCal <- function(dat) { ## calulate and output mean and se
@@ -20,16 +29,16 @@ meanseCal <- function(dat) { ## calulate and output mean and se
   dat %>%
     dplyr::group_by(SiteID, group, SplMonth) %>%
     dplyr::summarise(Density_avg = mean(Number,na.rm = T) * 4,Density_se = se(Number) * 4,
-                     Height_avg = mean(Height_mean,na.rm = T),Height_se = se(Height_mean),
-                     BsDmr_avg = mean(BsDmr_mean,na.rm = T),BsDmr_se = se(BsDmr_mean),
-                     LvThk_avg = mean(LvThk_mean,na.rm = T),LvThk_se = se(LvThk_mean),
-                     LvCt_avg = mean(LvCt_mean,na.rm = T),LvCt_se = se(LvCt_mean),
-                     LvCtG_avg = mean(LvCtG_mean,na.rm = T),LvCtG_se = se(LvCtG_mean),
-                     LvCtY_avg = mean(LvCtY_mean,na.rm = T),LvCtY_se = se(LvCtY_mean),
-                     TlrWg_avg = mean(TlrWg_mean,na.rm = T),TlrWg_se = se(TlrWg_mean),
-                     LvWg_avg = mean(LvWgG_mean,na.rm = T),LvWg_se = se(LvWgG_mean),
-                     StWg_avg = mean(StWg_mean,na.rm = T),StWg_se = se(StWg_mean),
-                     SeedRate_avg = mean(Seed_rate,na.rm = T),SeedRate_se = se(Seed_rate)) %>%
+                     Height_avg = mean(Height,na.rm = T),Height_se = se(Height),
+                     BsDmr_avg = mean(BsDmr,na.rm = T),BsDmr_se = se(BsDmr),
+                     LvThk_avg = mean(LvThk,na.rm = T),LvThk_se = se(LvThk),
+                     LvCt_avg = mean(LvCt,na.rm = T),LvCt_se = se(LvCt),
+                     LvCtG_avg = mean(LvCtG,na.rm = T),LvCtG_se = se(LvCtG),
+                     LvCtY_avg = mean(LvCtY,na.rm = T),LvCtY_se = se(LvCtY),
+                     TlrWg_avg = mean(TlrWg,na.rm = T),TlrWg_se = se(TlrWg),
+                     LvWg_avg = mean(LvWgG,na.rm = T),LvWg_se = se(LvWgG),
+                     StWg_avg = mean(StWg,na.rm = T),StWg_se = se(StWg),
+                     SeedRate_avg = mean(SeedRate,na.rm = T),SeedRate_se = se(SeedRate)) %>%
     write.csv("growth/log/GrowthTraits.csv")
 }
 
@@ -37,34 +46,7 @@ meanseCal <- function(dat) { ## calulate and output mean and se
 ## Basic Stat information ----
 meanseCal(datareadln())
 
-## calculation ----
-datareadln() %>% 
-  group_by(SiteID, group, SplMonth) %>%
-  summarise(n = n(),
-            Density_avg = mean(Number) * 4,
-            Density_se = sd(Number)/sqrt(n()) * 4,
-            Height_avg = mean(Height_mean),
-            Height_se = sd(Height_mean)/sqrt(n()),
-            BsDmr_avg = mean(BsDmr_mean),
-            BsDmr_se = sd(BsDmr_mean)/sqrt(n()),
-            LvThk_avg = mean(LvThk_mean),
-            LvThk_se = sd(LvThk_mean)/sqrt(n()),
-            LvCt_avg = mean(LvCt_mean),
-            LvCt_se = sd(LvCt_mean)/sqrt(n()),
-            LvCtG_avg = mean(LvCtG_mean),
-            LvCtG_se = sd(LvCtG_mean)/sqrt(n()),
-            LvCtY_avg = mean(LvCtY_mean),
-            LvCtY_se = sd(LvCtY_mean)/sqrt(n()),
-            TlrWg_avg = mean(TlrWg_mean),
-            TlrWg_se = sd(TlrWg_mean)/sqrt(n()),
-            LvWgG_avg = mean(LvWgG_mean),
-            LvWgG_se = sd(LvWgG_mean)/sqrt(n()),
-            StWg_avg = mean(StWg_mean),
-            StWg_se = sd(StWg_mean)/sqrt(n()),
-            Seed_rate_avg = mean(Seed_rate),
-            Seed_rate_se = sd(Seed_rate)/sqrt(n())
-            ) %>%
-  write.csv("./PlantGrowth/summary_PlantGrowthSummary.csv")
+
 
 ## Two-way anova ----
 tmp.model <- lm(Number ~ SiteID + SplMonth + SiteID * SplMonth, data = datareadln())
