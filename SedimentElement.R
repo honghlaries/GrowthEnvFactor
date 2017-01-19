@@ -134,7 +134,7 @@ plotFEsim2 <- function (fe, modinf = NULL, level = 0.95, stat = "mean", sd = TRU
 
 plotFEsim2facet <- function (fe, modinf = NULL, level = 0.95, stat = "mean", sd = TRUE,  
                         sigmaScale = NULL, oddsRatio = FALSE, taglv = NA, glv, gcode, ncol, theme) {
-  ## plotFEsim2, modified from merTools::plotFEsim
+  ## plotFEsim2facet, modified from merTools::plotFEsim
   if (!missing(sigmaScale)) {
     fe[, "sd"] <- fe[, "sd"]/sigmaScale
     fe[, stat] <- fe[, stat]/sigmaScale
@@ -190,7 +190,7 @@ plotFEsim2facet <- function (fe, modinf = NULL, level = 0.95, stat = "mean", sd 
 }
 
 multiElementMod <- function(dat, fact, SplMonthlv, grouplv, glv, gcode, tag, archiplot = TRUE, log = TRUE) {
-  library(merTools);library(lsmeans);library(multcompView);library(car);library(ggplot2)
+  library(merTools);library(lsmeans);library(multcompView);library(car);library(ggplot2);library(lattice)
   fe.g <- NULL; re.g <- NULL; modinf.g <- NULL; shapiro.g <- NULL; posthoc.g <- NULL; modavo.g <- NULL; 
   resid.g <- NULL;
   theme_HL <- theme_bw() + theme(legend.position = "none",axis.text = element_text(angle = 30))
@@ -243,9 +243,25 @@ multiElementMod <- function(dat, fact, SplMonthlv, grouplv, glv, gcode, tag, arc
            paste("sediment/plot/",tag[i],"_Raneff.png",sep=""),
            width = 6, height = 4)
     #resid
-    png(paste("sediment/plot/",tag[i],"_resid.png",sep=""),
+    png(paste("sediment/plot/",tag[i],"_diag_resid.png",sep=""), 
         width = 30, height = 20, units = "cm", res = 600)
-    plot(mod)
+    print(plot(mod, type = c("p", "smooth")))
+    dev.off()
+    png(paste("sediment/plot/",tag[i],"_diag_residQQ.png",sep=""), 
+        width = 30, height = 20, units = "cm", res = 600)
+    print(qqmath(mod, id = 0.05))
+    dev.off()
+    png(paste("sediment/plot/",tag[i],"_diag_zeta.png",sep=""), 
+        width = 30, height = 20, units = "cm", res = 600)
+    print(xyplot(mod))
+    dev.off()
+    png(paste("sediment/plot/",tag[i],"_diag_dens.png",sep=""), 
+        width = 30, height = 20, units = "cm", res = 600)
+    print(densityplot(mod))
+    dev.off()
+    png(paste("sediment/plot/",tag[i],"_diag_pair.png",sep=""), 
+        width = 30, height = 20, units = "cm", res = 600)
+    print(splom(mod))
     dev.off()
     stats::shapiro.test(resid(mod)) -> resid
     resid.g <- rbind(resid.g, 
@@ -254,13 +270,13 @@ multiElementMod <- function(dat, fact, SplMonthlv, grouplv, glv, gcode, tag, arc
                                 Pvalue = resid$p.value))
   }
   ## output
-  if (log) {write.csv(fe.g, "sediment/log/FixedEff.csv")
-    write.csv(re.g, "sediment/log/RandomEff.csv")
-    write.csv(modinf.g, "sediment/log/ModelChoice.csv") 
-    write.csv(shapiro.g, "sediment/log/ShapiroRawData.csv") 
-    write.csv(posthoc.g, "sediment/log/Posthoc.csv") 
-    write.csv(modavo.g, "sediment/log/ModelAnova.csv") 
-    write.csv(resid.g, "sediment/log/ShapiroResid.csv")
+  if (log) {write.csv(fe.g, "sediment/log/FixedEff.csv", row.names = F)
+    write.csv(re.g, "sediment/log/RandomEff.csv", row.names = F)
+    write.csv(modinf.g, "sediment/log/ModelChoice.csv", row.names = F) 
+    write.csv(shapiro.g, "sediment/log/ShapiroRawData.csv", row.names = F) 
+    write.csv(posthoc.g, "sediment/log/Posthoc.csv", row.names = F) 
+    write.csv(modavo.g, "sediment/log/ModelAnova.csv", row.names = F) 
+    write.csv(resid.g, "sediment/log/ShapiroResid.csv", row.names = F)
   }
   "DONE!"
 }
@@ -270,9 +286,12 @@ meanseCal(datareadln())
 
 ## LMM fiting and ploting ----
 multiElementMod(dat = datareadln() %>% gather(key = elem, value = resp, N:Pb),
-                fact = c("group + (1|SiteID)", 
+                fact = c("group + (1|SiteID)",
+                         "SplMonth + (1|SiteID)",
                          "group + (1|SiteID:SplMonth)",
-                         "group + (1|SiteID) + (1|SiteID:SplMonth)", 
+                         "SplMonth + (1|SiteID:SplMonth)",
+                         "group + (1|SiteID) + (1|SiteID:SplMonth)",
+                         "SplMonth + (1|SiteID) + (1|SiteID:SplMonth)",
                          "group + SplMonth + (1|SiteID)",
                          "group + SplMonth + (1|SiteID:SplMonth)",
                          "group + SplMonth + (1|SiteID) + (1|SiteID:SplMonth)",
