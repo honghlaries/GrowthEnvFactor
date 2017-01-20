@@ -10,7 +10,7 @@ datareadln <- function() {
     dplyr::inner_join(read.csv("./Data/meta_SiteGroup.csv"), by = c("SiteID" = "SiteID"))%>%
     dplyr::filter(group != "NV") %>% 
     dplyr::select(SiteID,SplMonth,group,
-                  Density = Number *4,
+                  Density = Number,
                   Height = Height_mean,
                   BasalDiameter = BsDmr_mean,
                   LeafThickness = LvThk_mean,
@@ -403,3 +403,62 @@ ggsave(plot = plotFEsim2facet(rbind(read.csv("growth/log/FixedEff_ajn.csv"),
                                                          strip.text = element_text(size= 6))), 
        "growth/plot/Fixeff_all.png",
        width = 6, height = 5, dpi = 600)
+
+## Tomogeneity of variance ----
+dat %>%
+  dplyr::group_by(group, SplMonth) %>%
+  dplyr::summarise(Density_avg = mean(Density,na.rm = T),
+                   Density_sd = sd(Density,na.rm = T), 
+                   Density_rsd = Density_sd/Density_avg,
+                   AboveGroundBiomass_avg = mean(AboveGroundBiomass,na.rm = T),
+                   AboveGroundBiomass_sd = sd(AboveGroundBiomass,na.rm = T),
+                   AboveGroundBiomass_rsd = AboveGroundBiomass_sd/AboveGroundBiomass_avg
+  ) %>% write.csv("growth/log/Hov.csv")
+
+library(car)
+#Density
+dat <- datareadln()
+plot(Density ~ group, data = datareadln()%>%filter(SplMonth == "Apr")%>%dplyr::filter(group == "EA" | group == "CL"))
+leveneTest(Density ~ group, center = mean,
+           data = datareadln()%>%filter(SplMonth == "Apr")%>%dplyr::filter(group == "EA" | group == "CL"))
+plot(Density ~ group, data = datareadln()%>%filter(SplMonth == "Apr")%>%dplyr::filter(group == "WE" | group == "CL"))
+leveneTest(Density ~ group, center = mean,
+           data = datareadln()%>%filter(SplMonth == "Apr")%>%dplyr::filter(group == "WE" | group == "CL"))
+
+plot(Density ~ group, data = datareadln()%>%filter(SplMonth == "Jul")%>%dplyr::filter(group == "EA" | group == "CL"))
+leveneTest(Density ~ group, center = mean,
+           data = datareadln()%>%filter(SplMonth == "Jul")%>%dplyr::filter(group == "EA" | group == "CL"))
+plot(Density ~ group, data = datareadln()%>%filter(SplMonth == "Jul")%>%dplyr::filter(group == "WE" | group == "CL"))
+leveneTest(Density ~ group, center = mean,
+           data = datareadln()%>%filter(SplMonth == "Jul")%>%dplyr::filter(group == "WE" | group == "CL"))
+
+plot(Density ~ group, data = datareadln()%>%filter(SplMonth == "Nov")%>%dplyr::filter(group == "EA" | group == "CL"))
+leveneTest(Density ~ group, center = mean,
+           data = datareadln()%>%filter(SplMonth == "Nov")%>%dplyr::filter(group == "EA" | group == "CL"))
+plot(Density ~ group, data = datareadln()%>%filter(SplMonth == "Nov")%>%dplyr::filter(group == "WE" | group == "CL"))
+leveneTest(Density ~ group, center = mean,
+           data = datareadln()%>%filter(SplMonth == "Nov")%>%dplyr::filter(group == "WE" | group == "CL"))
+
+
+#AbovegroundBiomass
+
+plot(AboveGroundBiomass ~ group, data = datareadln()%>%filter(SplMonth == "Apr")%>%dplyr::filter(group == "EA" | group == "CL"))
+leveneTest(AboveGroundBiomass ~ group, center = mean,
+           data = datareadln()%>%filter(SplMonth == "Apr")%>%dplyr::filter(group == "EA" | group == "CL"))
+plot(AboveGroundBiomass ~ group, data = datareadln()%>%filter(SplMonth == "Apr")%>%dplyr::filter(group == "WE" | group == "CL"))
+leveneTest(AboveGroundBiomass ~ group, center = mean,
+           data = datareadln()%>%filter(SplMonth == "Apr")%>%dplyr::filter(group == "WE" | group == "CL"))
+
+plot(AboveGroundBiomass ~ group, data = datareadln()%>%filter(SplMonth == "Jul")%>%dplyr::filter(group == "EA" | group == "CL"))
+leveneTest(AboveGroundBiomass ~ group, center = mean,
+           data = datareadln()%>%filter(SplMonth == "Jul")%>%dplyr::filter(group == "EA" | group == "CL"))
+plot(AboveGroundBiomass ~ group, data = datareadln()%>%filter(SplMonth == "Jul")%>%dplyr::filter(group == "WE" | group == "CL"))
+leveneTest(AboveGroundBiomass ~ group, center = mean,
+           data = datareadln()%>%filter(SplMonth == "Jul")%>%dplyr::filter(group == "WE" | group == "CL"))
+
+plot(AboveGroundBiomass ~ group, data = datareadln()%>%filter(SplMonth == "Nov")%>%dplyr::filter(group == "EA" | group == "CL"))
+leveneTest(AboveGroundBiomass ~ group, center = mean,
+           data = datareadln()%>%filter(SplMonth == "Nov")%>%dplyr::filter(group == "EA" | group == "CL"))
+plot(AboveGroundBiomass ~ group, data = datareadln()%>%filter(SplMonth == "Nov")%>%dplyr::filter(group == "WE" | group == "CL"))
+leveneTest(AboveGroundBiomass ~ group, center = mean,
+           data = datareadln()%>%filter(SplMonth == "Nov")%>%dplyr::filter(group == "WE" | group == "CL"))
