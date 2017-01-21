@@ -293,6 +293,7 @@ multiElementMod <- function(dat, fact, SplMonthlv, grouplv, glv, gcode,
 }
 
 ## Basic Stat information ----
+datareadln() %>% write.csv("sediment/log/SedimentElementRAW.csv", row.names = F)
 meanseCal(datareadln())
 
 ## LMM fiting and ploting ----

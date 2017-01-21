@@ -301,6 +301,7 @@ multiGrowthMod <- function(dat, fact, SplMonthlv, grouplv, glv, gcode,
 
 
 ## Basic Stat information ----
+datareadln() %>% write.csv("growth/log/GrowthTraitsRAW.csv", row.names = F)
 meanseCal(datareadln())
 
 ## LMM fiting and ploting ----
