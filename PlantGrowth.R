@@ -341,7 +341,7 @@ multiGrowthMod(dat = datareadln() %>%
                glv = c("EA","WE"), gcode = c("#31B404","#013ADF"),
                tag = c("LeafThickness","GreenLeafCount","LeafBiomass","StemBiomass"), suffix = "_jn")
 
-multiGrowthMod(dat = datareadln() %>% 
+multiGrowthMod(dat = datareadln() %>% View()
                  gather(key = traits, value = resp, Density:SeedRate) %>%
                  filter(SplMonth == "Nov"),
                fact = c("group + (1|SiteID)",
@@ -405,7 +405,7 @@ ggsave(plot = plotFEsim2facet(rbind(read.csv("growth/log/FixedEff_ajn.csv"),
        "growth/plot/Fixeff_all.png",
        width = 6, height = 5, dpi = 600)
 
-## Tomogeneity of variance ----
+## Homogeneity of variance ----
 dat %>%
   dplyr::group_by(group, SplMonth) %>%
   dplyr::summarise(Density_avg = mean(Density,na.rm = T),
@@ -463,3 +463,19 @@ leveneTest(AboveGroundBiomass ~ group, center = mean,
 plot(AboveGroundBiomass ~ group, data = datareadln()%>%filter(SplMonth == "Nov")%>%dplyr::filter(group == "WE" | group == "CL"))
 leveneTest(AboveGroundBiomass ~ group, center = mean,
            data = datareadln()%>%filter(SplMonth == "Nov")%>%dplyr::filter(group == "WE" | group == "CL"))
+
+## Site - level ANOVA comparing ----
+dat <- datareadln() %>% filter(SplMonth =="Nov")%>% filter(group !="WE")
+library(car)
+
+plot(SeedRate ~ SiteID, data = dat)
+leveneTest(SeedRate ~ SiteID, data = dat, center = mean)
+mod <- lm(SeedRate ~ SiteID, data = dat)
+anova(mod)
+lsmeans::cld(lsmeans(mod, adjust = "tukey", specs = "SiteID"), Letters = LETTERS)
+
+plot(FallenLeafCount ~ SiteID, data = dat)
+leveneTest(FallenLeafCount ~ SiteID, data = dat, center = mean)
+mod <- lm(FallenLeafCount ~ SiteID, data = dat)
+anova(mod)
+lsmeans::cld(lsmeans(mod, adjust = "tukey", specs = "SiteID"), Letters = LETTERS)
