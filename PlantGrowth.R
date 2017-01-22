@@ -465,8 +465,8 @@ leveneTest(AboveGroundBiomass ~ group, center = mean,
            data = datareadln()%>%filter(SplMonth == "Nov")%>%dplyr::filter(group == "WE" | group == "CL"))
 
 ## Site - level ANOVA comparing ----
-dat <- datareadln() %>% filter(SplMonth =="Nov")%>% filter(group !="WE")
-library(car)
+dat <- datareadln() %>% filter(SplMonth =="Nov")
+library(car);library(lsmeans)
 
 plot(SeedRate ~ SiteID, data = dat)
 leveneTest(SeedRate ~ SiteID, data = dat, center = mean)

@@ -9,8 +9,7 @@ datareadln <- function() {
     dplyr::right_join(read.csv("./Data/meta_Quadrat.csv"), by = c("QudNo" = "QudNo")) %>%
     dplyr::inner_join(read.csv("./Data/meta_SiteGroup.csv"), by = c("SiteID" = "SiteID"))%>%
     dplyr::filter(group != "NV") %>% 
-    dplyr::select(N:Pb,SiteID,SplMonth,group) %>%
-    return()
+    dplyr::select(N:Pb,SiteID,SplMonth,group) 
 }
 
 meanseCal <- function(dat) { ## calulate and output mean and se
