@@ -97,7 +97,7 @@ ggplot()+
                      labels = paste("121°",c(15 + 0:4 * 0.3),"'E",sep=""))+
   geom_vline(xintercept = 121.25 + 0:4 * 0.005, alpha = 0.5)+
   scale_y_continuous(breaks = 32.45 + 0:4 * 0.005, 
-                     labels = paste("32°",c(27 + 0:4 * 0.3),"'W",sep=""))+
+                     labels = paste("32°",c(27 + 0:4 * 0.3),"'N",sep=""))+
   geom_hline(yintercept = 32.45 + 0:4 * 0.005, alpha = 0.5) +
   scale_size_identity()+
   scale_fill_identity() +
@@ -146,7 +146,7 @@ ggplot()+
                      labels = paste("121°",(0.4125 + 0:2 * 0.005) * 60 ,"'E",sep=""))+
   geom_vline(xintercept = 121.4125 + 0:2 * 0.005, alpha = 0.5) +
   scale_y_continuous(breaks = 32.365 + 0:2 * 0.005, 
-                     labels = paste("32°",(0.365 + 0:2 * 0.005) * 60,"'W",sep=""))+
+                     labels = paste("32°",(0.365 + 0:2 * 0.005) * 60,"'N",sep=""))+
   geom_hline(yintercept = 32.365 + 0:2 * 0.005, alpha = 0.5) +
   scale_size_identity()+
   scale_fill_identity() +
@@ -195,7 +195,7 @@ ggplot()+
                      labels = paste("121°",(0.235 + 0:6 * 0.035) * 60 ,"'E",sep=""))+
   #geom_vline(xintercept = 121.235 + 0:6 * 0.035, alpha = 0.5) +
   scale_y_continuous(breaks = 32.355 + 0:3 * 0.040, 
-                     labels = paste("32°",(0.355 + 0:3 * 0.040) * 60,"'W",sep=""))+
+                     labels = paste("32°",(0.355 + 0:3 * 0.040) * 60,"'N",sep=""))+
   #geom_hline(yintercept = 32.355 + 0:3 * 0.040, alpha = 0.5) +
   scale_size_identity()+
   scale_fill_identity() +
