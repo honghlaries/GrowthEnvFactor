@@ -326,11 +326,9 @@ ggsave(plot = plotFEsim2facet(read.csv("sediment/log/FixedEff.csv") %>%
        width = 6, height = 4, dpi = 600)
 
 ## comparing before/after the dyke
- 
 ggplot(data = datareadln() %>% 
          filter(group == "EA") %>% 
-         select(-group) %>% 
-         gather(element, content, N:Pb)) + 
+         select(SiteID, SplMonth, N, S, Cu, Mn, Ni, As)  %>% 
+         gather(element, content, N:As)) + 
   geom_boxplot(aes(x = SiteID, y = content, fill = SplMonth)) +
-  facet_wrap(facets = ~ element, nrow = 4, scales = "free")
-library(ggplot2)
+  facet_wrap(facets = ~ element, nrow = 2, scales = "free")

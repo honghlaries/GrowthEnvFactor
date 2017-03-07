@@ -1,8 +1,8 @@
-## clean ----
+## clean 
 rm(list = ls())
 library(dplyr);library(tidyr)
 
-## Functions ----
+## Functions 
 datareadln <- function() {
   read.csv("./Data/Result_PlantTillerGrowthSummary.csv") %>%
     dplyr::inner_join(read.csv("./Data/meta_PlantSampleList.csv"), by = c("SplNo" = "SplNo")) %>%
@@ -300,11 +300,11 @@ multiGrowthMod <- function(dat, fact, SplMonthlv, grouplv, glv, gcode,
 
 
 
-## Basic Stat information ----
+## Basic Stat information 
 datareadln() %>% write.csv("growth/log/GrowthTraitsRAW.csv", row.names = F)
 meanseCal(datareadln())
 
-## LMM fiting and ploting ----
+## LMM fiting and ploting 
 multiGrowthMod(dat = datareadln() %>% gather(key = traits, value = resp, Density:SeedRate),
                 fact = c("group + (1|SiteID)",
                          "SplMonth + (1|SiteID)",
@@ -351,7 +351,7 @@ multiGrowthMod(dat = datareadln() %>% View()
                tag = c("FallenLeafCount","SeedRate"), suffix = "_n")
 
 
-## Gather ploting ----
+## Gather ploting 
 ggsave(plot = plotFEsim2facet(read.csv("growth/log/FixedEff_ajn.csv") %>% 
                                 filter(term != "(Intercept)") %>% 
                                 mutate(term = gsub("group","",term)) %>% 
@@ -405,7 +405,7 @@ ggsave(plot = plotFEsim2facet(rbind(read.csv("growth/log/FixedEff_ajn.csv"),
        "growth/plot/Fixeff_all.png",
        width = 6, height = 5, dpi = 600)
 
-## Homogeneity of variance ----
+## Homogeneity of variance 
 dat %>%
   dplyr::group_by(group, SplMonth) %>%
   dplyr::summarise(Density_avg = mean(Density,na.rm = T),
@@ -464,7 +464,7 @@ plot(AboveGroundBiomass ~ group, data = datareadln()%>%filter(SplMonth == "Nov")
 leveneTest(AboveGroundBiomass ~ group, center = mean,
            data = datareadln()%>%filter(SplMonth == "Nov")%>%dplyr::filter(group == "WE" | group == "CL"))
 
-## Site - level ANOVA comparing ----
+## Site - level ANOVA comparing 
 dat <- datareadln() %>% filter(SplMonth =="Nov")
 library(car);library(lsmeans)
 
@@ -479,3 +479,23 @@ leveneTest(FallenLeafCount ~ SiteID, data = dat, center = mean)
 mod <- lm(FallenLeafCount ~ SiteID, data = dat)
 anova(mod)
 lsmeans::cld(lsmeans(mod, adjust = "tukey", specs = "SiteID"), Letters = LETTERS)
+
+## comparing before/after the dyke
+dat <- datareadln() %>% 
+  filter(group == "EA") %>% 
+  select(SiteID, SplMonth, Density, Height, BasalDiameter, AboveGroundBiomass)  %>% 
+  gather(trait, value, Density:AboveGroundBiomass)
+
+ggplot(data = dat) + 
+  geom_boxplot(aes(x = SiteID, y = value, fill = SplMonth)) +
+  facet_wrap(facets = ~ trait, nrow = 2, scales = "free")
+
+for (i in 1:length(unique(dat$trait))) {
+  tag <- unique(dat$trait)[i]
+  print(tag);print(":")
+  anova(lm(value~SiteID*SplMonth, data = dat[dat$trait == tag,])) %>%
+    print();print(NULL);print(NULL);
+  }
+tapply(X = dat$value, INDEX = dat$trait,
+       FUN = function(x) {with(data = x, anova(lm(value~SiteID * SplMonth)))})
+
