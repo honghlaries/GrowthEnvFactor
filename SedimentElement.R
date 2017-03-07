@@ -1,8 +1,8 @@
-## clean ----
+## clean 
 rm(list = ls())
 library(dplyr);library(tidyr)
 
-## Functions ----
+## Functions 
 datareadln <- function() {
   read.csv("./Data/Result_Sediment.csv") %>%
     dplyr::inner_join(read.csv("./Data/meta_SedimentSampleList.csv"), by = c("SplNo" = "SplNo")) %>%
@@ -291,11 +291,11 @@ multiElementMod <- function(dat, fact, SplMonthlv, grouplv, glv, gcode,
   "DONE!"
 }
 
-## Basic Stat information ----
+## Basic Stat information 
 datareadln() %>% write.csv("sediment/log/SedimentElementRAW.csv", row.names = F)
 meanseCal(datareadln())
 
-## LMM fiting and ploting ----
+## LMM fiting and ploting 
 multiElementMod(dat = datareadln() %>% gather(key = elem, value = resp, N:Pb),
                 fact = c("group + (1|SiteID)",
                          "SplMonth + (1|SiteID)",
@@ -312,7 +312,7 @@ multiElementMod(dat = datareadln() %>% gather(key = elem, value = resp, N:Pb),
                 SplMonthlv = c("Apr","Jul","Nov"), grouplv = c("EA","CL","WE"), 
                 glv = c("EA","WE"), gcode = c("#31B404","#013ADF"))
 
-## Gather ploting ----
+## Gather ploting 
 ggsave(plot = plotFEsim2facet(read.csv("sediment/log/FixedEff.csv") %>% 
                            filter(term != "(Intercept)") %>% 
                            mutate(term = gsub("group","",term)) %>% 
@@ -324,3 +324,13 @@ ggsave(plot = plotFEsim2facet(read.csv("sediment/log/FixedEff.csv") %>%
                                                     strip.text = element_text(size= 6))), 
        "sediment/plot/Fixeff.png",
        width = 6, height = 4, dpi = 600)
+
+## comparing before/after the dyke
+ 
+ggplot(data = datareadln() %>% 
+         filter(group == "EA") %>% 
+         select(-group) %>% 
+         gather(element, content, N:Pb)) + 
+  geom_boxplot(aes(x = SiteID, y = content, fill = SplMonth)) +
+  facet_wrap(facets = ~ element, nrow = 4, scales = "free")
+library(ggplot2)
