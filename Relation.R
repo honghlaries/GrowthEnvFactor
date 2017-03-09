@@ -15,7 +15,7 @@ datareadln <- function() {
                       inner_join(read.csv("./Data/meta_SedimentSampleList.csv"), by = c("SplNo" = "SplNo")) %>%
                       inner_join(read.csv("./Data/meta_Quadrat.csv"), by = c("QudNo" = "QudNo")) %>%
                       inner_join(read.csv("./Data/meta_SiteGroup.csv"), by = c("SiteID" = "SiteID"))%>% 
-                      mutate(PhyStress = group=="LM") %>%
+                      mutate(PhyStress = group=="WE") %>%
                       select(QudNo,N,C,S,P,orgC,Al,Cr,Mn,Fe,Ni,Cu,Zn,As,Cd,Pb,SplMonth,PhyStress,group,SiteID),
                     y = read.csv("./Data/Result_PlantTillerGrowthSummary.csv") %>%
                       mutate(density = 4 * Number)%>%
@@ -44,8 +44,7 @@ datareadln <- function() {
     #       RametDensity = (density - denmean)/densd)%>% 
     select(SiteID,SplMonth,PhyStress,group,
            N,S,P,Al,Cr,Mn,Fe,Ni,Cu,Zn,As,Cd,Pb,
-           Height,Diameter,AbgBiomass,RametDensity)%>% 
-    return()
+           Height,Diameter,AbgBiomass,RametDensity)
 }
 
 StepRDA <- function(Growth,Env,Tag,SplMonth,path = "./GrowthvsElement/",filename) {
@@ -64,21 +63,39 @@ StepRDA <- function(Growth,Env,Tag,SplMonth,path = "./GrowthvsElement/",filename
   effload <- mod$CCA$v[,1:2]; effloadx <-effload - effload; efftag <- row.names(effload); effload <- data.frame(rbind(effloadx,effload),efftag)
   envload <- mod$CCA$biplot[,1:2]; envloadx <- envload - envload; envtag <- row.names(envload); envload <- data.frame(rbind(envloadx,envload),envtag)
   sampload <- mod$CCA$wa[,1:2]; sampload <- data.frame(sampload,Tag,SplMonth)
+  sampload.site <- sampload %>%
+    inner_join(read.csv("./Data/meta_SiteGroup.csv"), by = c("Tag" = "SiteID"))
+  sampload.group <- sampload %>%
+    inner_join(read.csv("./Data/meta_SiteGroup.csv"), by = c("Tag" = "SiteID")) %>%
+    select(-col) %>%
+    group_by(SplMonth, group) %>%
+    dplyr::summarise(RDA1.avg = mean(RDA1,na.rm = T),
+              RDA1.se = mean(RDA1,na.rm = T)/sqrt(n()-sum(is.na(RDA1))),
+              RDA2.avg = mean(RDA2,na.rm = T),
+              RDA2.se = mean(RDA2,na.rm = T)/sqrt(n()-sum(is.na(RDA2))))
   loadplot <- ggplot() +
-    geom_text(aes(x = RDA1,y = RDA2, col = SplMonth, label = Tag), data = sampload) +
-    geom_path(aes(x = RDA1,y = RDA2),group = envload$envtag, size = 1,
+    #geom_point(aes(x = RDA1,y = RDA2, col = group, shape = SplMonth), size = 0.7,
+    #           data = sampload.site) +
+    geom_path(aes(x = RDA1,y = RDA2),group = envload$envtag, size = 0.7,
               data = envload, col = "black") +
-    geom_label(aes(x = RDA1,y = RDA2, label = envtag), data = envload[7:12,], col = "black") + 
-    geom_path(aes(x = RDA1,y = RDA2),group = effload$efftag, size = 1,
+    geom_path(aes(x = RDA1,y = RDA2),group = effload$efftag, size = 0.7,
               data = effload, col = "blue") +
+    geom_point(aes(x = RDA1.avg,y = RDA2.avg, col = group, shape = SplMonth), size = 4, 
+               data = sampload.group) +
+    geom_errorbar(aes(x = RDA1.avg, y = RDA2.avg, ymax = RDA2.avg + RDA2.se, ymin = RDA2.avg - RDA2.se, 
+                      col = group), size = 0.7, data = sampload.group) +
+    geom_errorbarh(aes(y = RDA2.avg, x = RDA1.avg, xmax = RDA1.avg + RDA1.se, xmin = RDA1.avg - RDA1.se, 
+                       col = group), size = 0.7, data = sampload.group) +
+    geom_label(aes(x = RDA1,y = RDA2, label = envtag), data = envload[7:12,], col = "black") + 
     geom_label(aes(x = RDA1,y = RDA2, label = efftag), data = effload[5:8,], col = "blue", 
                nudge_y =c(0.05,0.02,-0.07,-0.05),nudge_x =c(0,-0.1,-0,0)) +
     scale_x_continuous(name = "RDA1", limits = c(-1.1,1.1)) +
     scale_y_continuous(name = "RDA2", limits = c(-1.1,1.1)) +
     theme_bw()
+  ggsave(plot = loadplot,filename = paste(path, "RDAloading_", filename, ".eps", sep = ""))
+  ggsave(plot = loadplot,filename = paste(path, "RDAloading_", filename, ".tiff", sep = ""))
   ggsave(plot = loadplot,filename = paste(path, "RDAloading_", filename, ".png", sep = ""), dpi = 1200)
-  
-  return(mod)
+  mod
 }
 
 Rlmfit <- function(Growth,selG,Env,selE,group,SplMonth,path = "./GrowthvsElement/",filename) {
