@@ -70,27 +70,30 @@ StepRDA <- function(Growth,Env,Tag,SplMonth,path = "./GrowthvsElement/",filename
     select(-col) %>%
     group_by(SplMonth, group) %>%
     dplyr::summarise(RDA1.avg = mean(RDA1,na.rm = T),
-              RDA1.se = mean(RDA1,na.rm = T)/sqrt(n()-sum(is.na(RDA1))),
+              RDA1.se = sd(RDA1,na.rm = T)/sqrt(n()-sum(is.na(RDA1))),
+              RDA1.sd = sd(RDA1,na.rm = T),
               RDA2.avg = mean(RDA2,na.rm = T),
-              RDA2.se = mean(RDA2,na.rm = T)/sqrt(n()-sum(is.na(RDA2))))
+              RDA2.se = sd(RDA2,na.rm = T)/sqrt(n()-sum(is.na(RDA2))),
+              RDA2.sd = sd(RDA2,na.rm = T))
   loadplot <- ggplot() +
-    #geom_point(aes(x = RDA1,y = RDA2, col = group, shape = SplMonth), size = 0.7,
-    #           data = sampload.site) +
+    geom_point(aes(x = RDA1,y = RDA2, col = group, shape = SplMonth), size = 1,
+               data = sampload.site) +
     geom_path(aes(x = RDA1,y = RDA2),group = envload$envtag, size = 0.7,
               data = envload, col = "black") +
     geom_path(aes(x = RDA1,y = RDA2),group = effload$efftag, size = 0.7,
               data = effload, col = "blue") +
-    geom_point(aes(x = RDA1.avg,y = RDA2.avg, col = group, shape = SplMonth), size = 4, 
+    geom_errorbar(aes(x = RDA1.avg, y = RDA2.avg, ymax = RDA2.avg + RDA2.sd, ymin = RDA2.avg - RDA2.sd), 
+                      col = "grey50", size = 0.7, data = sampload.group) +
+    geom_errorbarh(aes(y = RDA2.avg, x = RDA1.avg, xmax = RDA1.avg + RDA1.sd, xmin = RDA1.avg - RDA1.sd), 
+                   col = "grey50", size = 0.7, data = sampload.group) +
+    geom_point(aes(x = RDA1.avg,y = RDA2.avg, col = group, shape = SplMonth), size = 3, 
                data = sampload.group) +
-    geom_errorbar(aes(x = RDA1.avg, y = RDA2.avg, ymax = RDA2.avg + RDA2.se, ymin = RDA2.avg - RDA2.se, 
-                      col = group), size = 0.7, data = sampload.group) +
-    geom_errorbarh(aes(y = RDA2.avg, x = RDA1.avg, xmax = RDA1.avg + RDA1.se, xmin = RDA1.avg - RDA1.se, 
-                       col = group), size = 0.7, data = sampload.group) +
-    geom_label(aes(x = RDA1,y = RDA2, label = envtag), data = envload[7:12,], col = "black") + 
-    geom_label(aes(x = RDA1,y = RDA2, label = efftag), data = effload[5:8,], col = "blue", 
+    geom_label(aes(x = RDA1,y = RDA2, label = envtag), size = 3.5, data = envload[7:12,], col = "black") + 
+    geom_label(aes(x = RDA1,y = RDA2, label = efftag), size = 3.5, data = effload[5:8,], col = "blue", 
                nudge_y =c(0.05,0.02,-0.07,-0.05),nudge_x =c(0,-0.1,-0,0)) +
     scale_x_continuous(name = "RDA1", limits = c(-1.1,1.1)) +
     scale_y_continuous(name = "RDA2", limits = c(-1.1,1.1)) +
+    scale_shape("Month") + scale_color_hue("Location") +  
     theme_bw()
   ggsave(plot = loadplot,filename = paste(path, "RDAloading_", filename, ".eps", sep = ""))
   ggsave(plot = loadplot,filename = paste(path, "RDAloading_", filename, ".tiff", sep = ""))
@@ -178,7 +181,7 @@ library(ggplot2)
 library(vegan)
 library(MASS)
 data <- datareadln()
-Env <-  data %>% select(N,S,P,Al,Cr,Mn,Fe,Ni,Cu,Zn,As,Cd,Pb,PhyStress)
+Env <-  data %>% select(N,S,P,Al,Cr,Mn,Fe,Ni,Cu,Zn,As,Cd,Pb)
 Growth <-data %>%  select(Height,Diameter,AbgBiomass,RametDensity)
 Tag <- data$SiteID
 SplMonth <- data$SplMonth
