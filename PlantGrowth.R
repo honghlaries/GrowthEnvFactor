@@ -1,6 +1,6 @@
 ## clean 
 rm(list = ls())
-library(dplyr);library(tidyr)
+library(dplyr);library(tidyr);library(ggplot2)
 
 ## Functions 
 datareadln <- function() {
@@ -9,7 +9,7 @@ datareadln <- function() {
     dplyr::right_join(read.csv("./Data/meta_Quadrat.csv"), by = c("QudNo" = "QudNo")) %>%
     dplyr::inner_join(read.csv("./Data/meta_SiteGroup.csv"), by = c("SiteID" = "SiteID"))%>%
     dplyr::filter(group != "NV") %>% 
-    dplyr::select(SiteID,SplMonth,group,
+    dplyr::select(SiteID,SplMonth,group,QudNo,
                   Density = Number,
                   Height = Height_mean,
                   BasalDiameter = BsDmr_mean,
@@ -197,7 +197,7 @@ plotFEsim2facet <- function (fe, modinf = NULL, level = 0.95, stat = "mean", sd 
 
 multiGrowthMod <- function(dat, fact, SplMonthlv, grouplv, glv, gcode, 
                            tag = NULL, suffix = "", archiplot = TRUE, log = TRUE) {
-  library(merTools);library(lsmeans);library(multcompView);library(car);library(ggplot2);library(lattice)
+  library(merTools);library(lsmeans);library(multcompView);library(car);library(ggplot2);library(lattice);library(tidyr)
   fe.g <- NULL; re.g <- NULL; modinf.g <- NULL; shapiro.g <- NULL; posthoc.g <- NULL; modavo.g <- NULL; 
   resid.g <- NULL;
   theme_HL <- theme_bw() + theme(legend.position = "none",axis.text = element_text(angle = 30))
@@ -341,7 +341,7 @@ multiGrowthMod(dat = datareadln() %>%
                glv = c("EA","WE"), gcode = c("#31B404","#013ADF"),
                tag = c("LeafThickness","GreenLeafCount","LeafBiomass","StemBiomass"), suffix = "_jn")
 
-multiGrowthMod(dat = datareadln() %>% View()
+multiGrowthMod(dat = datareadln() %>% 
                  gather(key = traits, value = resp, Density:SeedRate) %>%
                  filter(SplMonth == "Nov"),
                fact = c("group + (1|SiteID)",
@@ -349,7 +349,6 @@ multiGrowthMod(dat = datareadln() %>% View()
                SplMonthlv = c("Nov"), grouplv = c("EA","CL","WE"), 
                glv = c("EA","WE"), gcode = c("#31B404","#013ADF"),
                tag = c("FallenLeafCount","SeedRate"), suffix = "_n")
-
 
 ## Gather ploting 
 ggsave(plot = plotFEsim2facet(read.csv("growth/log/FixedEff_ajn.csv") %>% 
@@ -404,6 +403,23 @@ ggsave(plot = plotFEsim2facet(rbind(read.csv("growth/log/FixedEff_ajn.csv"),
                                                          strip.text = element_text(size= 6))), 
        "growth/plot/Fixeff_all.png",
        width = 6, height = 5, dpi = 600)
+
+ggsave(plot = plotFEsim2facet(rbind(read.csv("growth/log/FixedEff_ajn.csv"),
+                                    read.csv("growth/log/FixedEff_jn.csv"),
+                                    read.csv("growth/log/FixedEff_n.csv")) %>% 
+                                filter(term != "(Intercept)") %>% 
+                                mutate(term = gsub("group","",term))%>% 
+                                mutate(term = gsub("SplMonth","",term))%>% 
+                                mutate(tag = factor(tag, levels = c("Density","Height","BasalDiameter","AboveGroundBiomass",
+                                                                    "LeafThickness","GreenLeafCount","LeafBiomass","StemBiomass",
+                                                                    "FallenLeafCount","SeedRate"))),
+                              glv = c("EA","WE"), gcode = c("#31B404","#013ADF"), ncol = 4,
+                              theme = theme_bw() + theme(legend.position = "none",
+                                                         axis.text = element_text(size= 4,angle = 30),
+                                                         axis.title = element_text(size= 6),
+                                                         strip.text = element_text(size= 6))), 
+       "growth/plot/Fixeff_all.eps",
+       width = 6, height = 5)
 
 ## Homogeneity of variance 
 dat %>%
@@ -499,3 +515,161 @@ for (i in 1:length(unique(dat$trait))) {
 tapply(X = dat$value, INDEX = dat$trait,
        FUN = function(x) {with(data = x, anova(lm(value~SiteID * SplMonth)))})
 
+#plot for Density - tiller biomass
+dat <- datareadln()
+dat1 <- dat %>%
+  group_by(SiteID, SplMonth) %>%
+  summarise(D.mean = mean(Density),
+            D.sd = sd(Density),
+            W.mean = mean(AboveGroundBiomass),
+            W.sd = sd(AboveGroundBiomass)) %>%
+  mutate(group = substr(SiteID, 1,2))
+dat2 <- dat %>%
+  group_by(group, SplMonth) %>%
+  summarise(D.mean = mean(Density),
+            D.sd = sd(Density),
+            W.mean = mean(AboveGroundBiomass),
+            W.sd = sd(AboveGroundBiomass)) 
+
+ggsave("growth/plot/Density-Biomass_site.eps", 
+       ggplot() +
+         geom_point(data = dat, stat = "identity", 
+                    aes(x = AboveGroundBiomass, y = Density, colour = group, shape = SplMonth), 
+                    size = 0.6) +
+         #geom_point(data = pdata1, stat = "identity", 
+         #           aes(x = W.mean, y = N.mean, colour = col), 
+         #           size = 3, alpha =0.5) +
+         geom_path(data = dat1, aes(y = D.mean, x = W.mean, group = SiteID, colour = group),
+                   size = .7, arrow = arrow(length = unit(0.1, "inches")))+
+         geom_errorbar(data = dat1,
+                       aes(y = D.mean, x = W.mean, ymax = D.mean + D.sd, ymin = D.mean - D.sd),
+                       colour = "grey50", stat = "identity", size = .5, width = 0)+
+         geom_errorbarh(data = dat1,
+                        aes(y = D.mean, x = W.mean, xmax = W.mean + W.sd, xmin = W.mean - W.sd),
+                        colour = "grey50", stat = "identity", size = .5, height = 0)+
+         xlab("Tiller Mean Abground Biomass(g)") + ylab("Tiller Density") +
+         scale_colour_manual(breaks = c("CL","EA","WE"), values = c("#B45F04", "#31B404", "#013ADF")) +
+         facet_wrap(~SiteID, ncol = 4) +
+         theme_bw() +
+         theme(legend.position = "none",
+               axis.title = element_text(size = 8),
+               axis.text = element_text(size = 8),
+               strip.text = element_text(size = 8)),
+       width = 5, height = 4)
+
+ggsave("growth/plot/Density-Biomass_group.eps", 
+       ggplot() +
+         geom_point(data = dat, stat = "identity", 
+                    aes(x = AboveGroundBiomass, y = Density, colour = group, shape = SplMonth), 
+                    size = 0.6) +
+         #geom_point(data = pdata1, stat = "identity", 
+         #           aes(x = W.mean, y = N.mean, colour = col), 
+         #           size = 3, alpha =0.5) +
+         geom_path(data = dat2, aes(y = D.mean, x = W.mean, group = group, colour = group),
+                   size = .7, arrow = arrow(length = unit(0.1, "inches")))+
+         geom_errorbar(data = dat2,
+                       aes(y = D.mean, x = W.mean, ymax = D.mean + D.sd, ymin = D.mean - D.sd),
+                       colour = "grey50", stat = "identity", size = .5, width = 0)+
+         geom_errorbarh(data = dat2,
+                        aes(y = D.mean, x = W.mean, xmax = W.mean + W.sd, xmin = W.mean - W.sd),
+                        colour = "grey50", stat = "identity", size = .5, height = 0)+
+         xlab("Tiller Mean Abground Biomass(g)") + ylab("Tiller Density") +
+         scale_colour_manual(breaks = c("CL","EA","WE"), values = c("#B45F04", "#31B404", "#013ADF")) +
+         facet_wrap(~group, ncol = 4) +
+         theme_bw() +
+         theme(legend.position = "none",
+               axis.title = element_text(size = 8),
+               axis.text = element_text(size = 8),
+               strip.text = element_text(size = 8)),
+       width = 5, height = 2)
+
+# Height structure
+dat <- read.csv("./Data/Result_PlantTillerGrowth.csv") %>%
+  dplyr::inner_join(read.csv("./Data/meta_PlantSampleList.csv"), by = c("SplNo" = "SplNo")) %>%
+  dplyr::right_join(read.csv("./Data/meta_Quadrat.csv"), by = c("QudNo" = "QudNo")) %>%
+  dplyr::inner_join(read.csv("./Data/meta_SiteGroup.csv"), by = c("SiteID" = "SiteID"))%>%
+  dplyr::filter(group != "NV") 
+
+dat$SplMonth <- as.character(dat$SplMonth)
+dat$SplMonth[dat$SplMonth == "Nov"] <-  "Nov, -Breeding"
+dat$SplMonth[dat$Seed == 1] <- "Nov,+Breeding"
+dat$SplMonth <- as.factor(dat$SplMonth)
+
+mean <- dat %>%
+  select(group,QudNo,SplMonth,Height) %>%
+  group_by(SplMonth,group,QudNo) %>%
+  summarise(H1 = sum(Height <= 30),
+            H2 = sum(30 < Height & Height <= 60),
+            H3 = sum(60 < Height & Height <= 90),
+            H4 = sum(90 < Height & Height <= 120),
+            H5 = sum(120 < Height & Height <= 250),
+            TOT = H1 + H2 + H3 + H4 + H5) %>%
+  mutate(h1 = H1/TOT,
+         h2 = H2/TOT,
+         h3 = H3/TOT,
+         h4 = H4/TOT,
+         h5 = H5/TOT) %>%
+  group_by(SplMonth,group) %>%
+  summarise(h1 = mean(h1),
+            h2 = mean(h2),
+            h3 = mean(h3),
+            h4 = mean(h4),
+            h5 = mean(h5))%>%
+  gather(Hgroup, mean, h1:h5)
+
+se <- dat %>%
+  select(group,QudNo,SplMonth,Height) %>%
+  group_by(SplMonth,group,QudNo) %>%
+  summarise(H1 = sum(Height <= 30),
+            H2 = sum(30 < Height & Height <= 60),
+            H3 = sum(60 < Height & Height <= 90),
+            H4 = sum(90 < Height & Height <= 120),
+            H5 = sum(120 < Height & Height <= 250),
+            TOT = H1 + H2 + H3 + H4 + H5 ) %>%
+  mutate(h1 = H1/TOT,
+         h2 = H2/TOT,
+         h3 = H3/TOT,
+         h4 = H4/TOT,
+         h5 = H5/TOT
+  ) %>%
+  group_by(SplMonth,group) %>%
+  summarise(h1 = sd(h1)/sqrt(n()),
+            h2 = sd(h2)/sqrt(n()),
+            h3 = sd(h3)/sqrt(n()),
+            h4 = sd(h4)/sqrt(n()),
+            h5 = sd(h5)/sqrt(n()))%>%
+  gather(Hgroup, se, h1:h5)
+
+se$se[se$se == 0] <- NA
+
+Hstru <- inner_join(mean, se, by = c("SplMonth" = "SplMonth", 
+                                     "group" = "group", 
+                                     "Hgroup" = "Hgroup"))
+
+ggsave("growth/plot/out.HeightStructure.eps",
+       ggplot(data = Hstru)+
+         geom_bar(aes(x = Hgroup, y = mean, fill = group),
+                  position = "dodge",stat = "identity") +
+         geom_errorbar(aes(x = Hgroup, ymax = mean+se, ymin = mean-se, group = group),
+                       stat = "identity", col = "black", 
+                       position = position_dodge(width=0.9),
+                       width = 0.25, size = 0.3) + 
+         facet_grid(group~SplMonth) + 
+         scale_y_continuous("Percent",limits = c(-0.05,1), breaks = c(0,0.2,0.4,0.6,0.8,1.0),
+                            labels = c("0%","20%","40%","60%","80%","100%")) +
+         scale_x_discrete("Height",labels = c("0-30","30-60","60-90",
+                                              "90-120","120+")) +
+         scale_fill_manual("Location",
+                           values = c("#B45F04", "#31B404", "#013ADF"))+
+         coord_flip()+
+         theme_bw() + 
+         theme(panel.grid = element_blank(),
+               legend.position = "bottom",
+               strip.background = element_blank(),
+               legend.key = element_blank(),
+               axis.text = element_text(size = 9,angle = 20),
+               axis.title = element_text(size = 10),
+               strip.text = element_text(size = 10),
+               legend.text = element_text(size = 8),
+               legend.title = element_text(size = 10)),
+       width = 7.2, height = 6,scale = 1)

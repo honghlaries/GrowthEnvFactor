@@ -161,7 +161,7 @@ Rlmfit <- function(Growth,selG,Env,selE,group,SplMonth,path = "./GrowthvsElement
           strip.text = element_text(size = 8),
           legend.text = element_text(size = 8),
           legend.title = element_text(size = 8))
-  ggsave(plot = smatrix, filename = paste(path,"Matrix_",filename,".png", sep = ""), dpi = 1200)
+  ggsave(plot = smatrix, filename = paste(path,"Matrix_",filename,".eps", sep = ""), dpi = 1200)
   return(smatrix)
 }
 
@@ -203,7 +203,6 @@ selG <- c("Height", "Diameter", "AbgBiomass", "RametDensity")
 selE <- c("N", "S", "Cu", "Mn", "Ni", "As")
 
 Rlmfit(Growth,selG,Env,selE,group,SplMonth,filename = "selelement")
-
 ## arc ====
 #Apr-all
 data <- datareadln()%>% 

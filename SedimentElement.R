@@ -325,6 +325,18 @@ ggsave(plot = plotFEsim2facet(read.csv("sediment/log/FixedEff.csv") %>%
        "sediment/plot/Fixeff.png",
        width = 6, height = 4, dpi = 600)
 
+ggsave(plot = plotFEsim2facet(read.csv("sediment/log/FixedEff.csv") %>% 
+                                filter(term != "(Intercept)") %>% 
+                                mutate(term = gsub("group","",term)) %>% 
+                                mutate(term = gsub("SplMonth","",term)),
+                              glv = c("EA","WE"), gcode = c("#31B404","#013ADF"), ncol = 5,
+                              theme = theme_bw() + theme(legend.position = "none",
+                                                         axis.text = element_text(size= 4,angle = 30),
+                                                         axis.title = element_text(size= 6),
+                                                         strip.text = element_text(size= 6))), 
+       "sediment/plot/Fixeff.eps",
+       width = 6, height = 4)
+
 ## comparing before/after the dyke
 ggplot(data = datareadln() %>% 
          filter(group == "EA") %>% 
