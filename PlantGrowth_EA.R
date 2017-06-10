@@ -98,8 +98,8 @@ shapiroTest <- function(dat) {
   plot(density(dat$value[dat$SiteID == "EA1"]), main = "EA1")
   plot(density(dat$value[dat$SiteID == "EA2"]), main = "EA2")
   plot(1)
-  plot(density(dat$value[dat$SplMonth == "Apr"]), main = "Apr")
-  plot(density(dat$value[dat$SplMonth == "Jul"]), main = "Jul")
+  if("Apr" %in% unique(dat$SplMonth)) plot(density(dat$value[dat$SplMonth == "Apr"]), main = "Apr") else plot(1)
+  if("Jul" %in% unique(dat$SplMonth)) plot(density(dat$value[dat$SplMonth == "Jul"]), main = "Jul") else plot(1)
   plot(density(dat$value[dat$SplMonth == "Nov"]), main = "Nov")
   par(mfrow = c(1,1))
   print("pass? 1: Yes; 0: No"); if(!scan(n = 1)) return("test of normality failed")
@@ -109,19 +109,34 @@ shapiroTest <- function(dat) {
 leveneTest <- function(dat){
   library(car)
   plot(value ~ as.factor(SiteID), data = dat)
-  with(car::leveneTest(value,group = SiteID), data = dat)
+  print(with(car::leveneTest(value,group = SiteID), data = dat))
   print("pass? 1: Yes; 0: No"); if(!scan(n = 1)) return("homogeneity test of variances failed")
   
-  plot(value ~ SplMonth, data = dat)
-  with(car::leveneTest(value,group = SplMonth), data = dat)
+  plot(value ~ as.factor(SplMonth), data = dat)
+  print(with(car::leveneTest(value,group = SplMonth), data = dat))
   print("pass? 1: Yes; 0: No"); if(!scan(n = 1)) return("homogeneity test of variances failed")
   
   plot(value ~ as.factor(paste(SiteID,SplMonth,sep = ".")), data = dat)
-  with(car::leveneTest(value,group = paste(SiteID,SplMonth,sep = ".")), data = dat)
+  print(with(car::leveneTest(value,group = paste(SiteID,SplMonth,sep = ".")), data = dat))
   print("pass? 1: Yes; 0: No"); if(!scan(n = 1)) return("homogeneity test of variances failed")
   return("homogeneity test of variances passed!")
 }
 
+doadjustedTest <- function(dat, tag) {
+  
+  aov <- aov(value ~ SplMonth * SiteID, data = dat)
+  print(summary(aov))
+  scan(n = 0)
+  
+  library(multcomp)
+  library(multcompView)
+  hsd <- TukeyHSD(aov)
+  #plot(hsd)
+  print(multcompLetters4(aov,hsd))
+  scan(n = 0)
+  
+  seasonal.t.test(dat,tag)
+}
 ## ---------------------------------------------------
 ## comparing before/after the dyke 
 ##
@@ -158,21 +173,154 @@ read.csv("growth/log/t.test_EA.csv") %>% print(row.names = F)
 
 # Density
 tag <- "Density"
-seasonal.t.test(dat,tag)
 
 dat1 <- dat %>% filter(trait == tag) %>% mutate(value = (value))
 shapiroTest(dat1)
 leveneTest(dat1)
 
-seasonal.t.test(dat1,"Density")
+doadjustedTest(dat1,tag)
 
-aov <- aov(value ~ SplMonth * SiteID, data = dat1)
-summary(aov)
+# Height
+tag <- "Height"
 
-library(multcomp)
-library(multcompView)
-hsd <- TukeyHSD(aov)
-#plot(hsd)
-multcompLetters4(aov,hsd)
+dat1 <- dat %>% filter(trait == tag) %>% mutate(value = (value))
+shapiroTest(dat1)
+leveneTest(dat1)
 
+doadjustedTest(dat1,tag)
+
+# Basal diameter
+tag <- "BasalDiameter"
+
+dat1 <- dat %>% filter(trait == tag) %>% mutate(value = (value))
+shapiroTest(dat1)
+leveneTest(dat1)
+
+doadjustedTest(dat1,tag)
+
+# LeafThickness
+tag <- "LeafThickness"
+
+dat1 <- dat %>% filter(trait == tag) %>% 
+  filter(!is.na(value)) %>% 
+  mutate(SplMonth = as.character(SplMonth),
+    value = log(1+log(value)))
+shapiroTest(dat1)
+leveneTest(dat1)
+
+doadjustedTest(dat1,tag)
+
+# LeafCount
+tag <- "LeafCount"
+
+dat1 <- dat %>% filter(trait == tag) %>% 
+  filter(!is.na(value)) %>% 
+  mutate(SplMonth = as.character(SplMonth),
+         value = (value))
+shapiroTest(dat1)
+leveneTest(dat1)
+
+doadjustedTest(dat1,tag)
+
+# GreenLeafCount
+tag <- "GreenLeafCount"
+
+dat1 <- dat %>% filter(trait == tag) %>% 
+  filter(!is.na(value)) %>% 
+  mutate(SplMonth = as.character(SplMonth),
+         value = (value))
+shapiroTest(dat1)
+leveneTest(dat1)
+
+doadjustedTest(dat1,tag)
+
+# FallenLeafCount
+tag <- "FallenLeafCount"
+
+dat1 <- dat %>% filter(trait == tag) %>% 
+  filter(!is.na(value)) %>% 
+  mutate(SplMonth = as.character(SplMonth),
+         value = (value))
+shapiroTest(dat1)
+leveneTest(dat1)
+
+aov <- aov(value ~ SiteID, data = dat1)
+print(summary(aov))
+
+seasonal.t.test(dat,tag)
+
+# AboveGroundBiomass
+tag <- "AboveGroundBiomass"
+
+dat1 <- dat %>% filter(trait == tag) %>% 
+  filter(!is.na(value)) %>% 
+  mutate(SplMonth = as.character(SplMonth),
+         value = log(value))
+shapiroTest(dat1)
+leveneTest(dat1)
+
+doadjustedTest(dat1,tag)
+
+# LeafBiomass
+tag <- "LeafBiomass"
+
+dat1 <- dat %>% filter(trait == tag) %>% 
+  filter(!is.na(value)) %>% 
+  mutate(SplMonth = as.character(SplMonth),
+         value = log(log(value)))
+shapiroTest(dat1)
+leveneTest(dat1)
+
+doadjustedTest(dat1,tag)
+
+# StemBiomass
+tag <- "StemBiomass"
+
+dat1 <- dat %>% filter(trait == tag) %>% 
+  filter(!is.na(value)) %>% 
+  mutate(SplMonth = as.character(SplMonth),
+         value = log(value))
+shapiroTest(dat1)
+leveneTest(dat1)
+
+doadjustedTest(dat1,tag)
+
+# StemBiomass
+tag <- "StemBiomass"
+
+dat1 <- dat %>% filter(trait == tag) %>% 
+  filter(!is.na(value)) %>% 
+  mutate(SplMonth = as.character(SplMonth),
+         value = log(value))
+shapiroTest(dat1)
+leveneTest(dat1)
+
+doadjustedTest(dat1,tag)
+
+# SeedRate
+tag <- "SeedRate"
+
+dat1 <- dat %>% filter(SplMonth == "Nov" & trait == tag) %>% 
+  filter(!is.na(value)) %>% 
+  mutate(SplMonth = as.character(SplMonth),
+         value = (value))
+shapiroTest(dat1)
+leveneTest(dat1)
+
+aov <- aov(value ~ SiteID, data = dat1)
+print(summary(aov))
+
+seasonal.t.test(dat,tag)
+
+# L_S_Ratio
+tag <- "L_S_Ratio"
+
+dat1 <- dat %>% filter(trait == tag) %>% 
+  filter(!is.na(value)) %>% 
+  mutate(SplMonth = as.character(SplMonth),
+         value = (value))
+shapiroTest(dat1)
+leveneTest(dat1)
+
+doadjustedTest(dat1,tag)
 
