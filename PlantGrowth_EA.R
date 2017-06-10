@@ -1,8 +1,14 @@
-## clean 
+## ---------------------------------------------------
+## init
+##
+## ---------------------------------------------------
 rm(list = ls())
 library(dplyr);library(tidyr);library(ggplot2)
 
+## ---------------------------------------------------
 ## Functions 
+##
+## ---------------------------------------------------
 datareadln <- function() {
   read.csv("./Data/Result_PlantTillerGrowthSummary.csv") %>%
     dplyr::inner_join(read.csv("./Data/meta_PlantSampleList.csv"), by = c("SplNo" = "SplNo")) %>%
@@ -41,7 +47,7 @@ seasonal.t.test <- function(dat,tag) {
   t.sum <- NULL
   for (i in 1: length(unique(dat$SplMonth))) {
     subdat <- dat %>% filter(SplMonth == unique(dat$SplMonth)[i])
-    t <- t.test(value~SiteID, data = subdat)
+    t <- t.test(value~SiteID, data = subdat, var.equal = TRUE)
     conf <- format(t$conf.int, digit = 3)
     p <- format(t$p.value,digit = 3)
     t.sum <- rbind(t.sum, data.frame(
@@ -61,6 +67,59 @@ doTandPlot <- function(dat,tag) {
              tag) 
   ggsave(filename = paste("growth/plot/bar_",tag,"_EA.png",sep = ""), width = 6, height = 4)
   seasonal.t.test(dat,tag)
+}
+
+shapiroTest <- function(dat) {
+  print(stats::shapiro.test(dat$value))
+  par(mar = c(4, 4, 0.5, 0.5), mfrow = c(1, 2))
+  qqnorm(dat$value)
+  plot(density(dat$value))
+  print("pass? 1: Yes; 0: No"); if(!scan(n = 1)) return("test of normality failed")
+  
+  SiteIDlv <- unique(dat$SiteID)
+  for(i in 1:length(SiteIDlv)) {
+    subdat <- dat %>% filter(SiteID == SiteIDlv[i])
+    print("------SHAPIRO TEST RESULT-------")
+    print(paste(SiteIDlv[i],":"))
+    stats::shapiro.test(subdat$value) %>% print()
+    print("--------------------------------")
+    print("                                ")
+  }
+  SplMonthlv <- unique(dat$SplMonth)
+  for(i in 1:length(SplMonthlv)) {
+    subdat <- dat %>% filter(SplMonth == SplMonthlv[i])
+    print("------SHAPIRO TEST RESULT-------")
+    print(paste(SplMonthlv[i],":"))
+    stats::shapiro.test(subdat$value) %>% print()
+    print("--------------------------------")
+    print("                                ")
+  }
+  par(mar = c(4, 4, 0.5, 0.5), mfrow = c(2, 3))
+  plot(density(dat$value[dat$SiteID == "EA1"]), main = "EA1")
+  plot(density(dat$value[dat$SiteID == "EA2"]), main = "EA2")
+  plot(1)
+  plot(density(dat$value[dat$SplMonth == "Apr"]), main = "Apr")
+  plot(density(dat$value[dat$SplMonth == "Jul"]), main = "Jul")
+  plot(density(dat$value[dat$SplMonth == "Nov"]), main = "Nov")
+  par(mfrow = c(1,1))
+  print("pass? 1: Yes; 0: No"); if(!scan(n = 1)) return("test of normality failed")
+  return("test of normality passed!")
+}
+
+leveneTest <- function(dat){
+  library(car)
+  plot(value ~ as.factor(SiteID), data = dat)
+  with(car::leveneTest(value,group = SiteID), data = dat)
+  print("pass? 1: Yes; 0: No"); if(!scan(n = 1)) return("homogeneity test of variances failed")
+  
+  plot(value ~ SplMonth, data = dat)
+  with(car::leveneTest(value,group = SplMonth), data = dat)
+  print("pass? 1: Yes; 0: No"); if(!scan(n = 1)) return("homogeneity test of variances failed")
+  
+  plot(value ~ as.factor(paste(SiteID,SplMonth,sep = ".")), data = dat)
+  with(car::leveneTest(value,group = paste(SiteID,SplMonth,sep = ".")), data = dat)
+  print("pass? 1: Yes; 0: No"); if(!scan(n = 1)) return("homogeneity test of variances failed")
+  return("homogeneity test of variances passed!")
 }
 
 ## ---------------------------------------------------
@@ -89,14 +148,31 @@ t.summary <- NULL
 tagList <- unique(dat$trait)
 for(i in 1: length(tagList)){
   t.summary <- rbind(t.summary,doTandPlot(dat,tagList[i]))
-} %>% write.csv("growth/log/t.test_EA.csv")
+} %>% write.csv("growth/log/t.test_EA.csv",row.names = F)
 
+read.csv("growth/log/t.test_EA.csv") %>% print(row.names = F)
 ## ---------------------------------------------------
 ## scaling and re-analysis
 ##
 ## ---------------------------------------------------
 
 # Density
-dat1 <- dat %>% filter(trait == "Density") %>% mutate(value = log(value))
+tag <- "Density"
+seasonal.t.test(dat,tag)
+
+dat1 <- dat %>% filter(trait == tag) %>% mutate(value = (value))
+shapiroTest(dat1)
+leveneTest(dat1)
+
 seasonal.t.test(dat1,"Density")
+
+aov <- aov(value ~ SplMonth * SiteID, data = dat1)
+summary(aov)
+
+library(multcomp)
+library(multcompView)
+hsd <- TukeyHSD(aov)
+#plot(hsd)
+multcompLetters4(aov,hsd)
+
 
