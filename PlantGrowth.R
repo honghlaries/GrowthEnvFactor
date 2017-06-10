@@ -298,7 +298,15 @@ multiGrowthMod <- function(dat, fact, SplMonthlv, grouplv, glv, gcode,
   "DONE!"
 }
 
-
+singlePlot <- function(dat,tag) {
+  dat <- dat %>% filter(trait == tag)
+  ggplot(data = dat) + 
+    geom_bar(aes(x = SplMonth, y = mean, fill = SiteID),stat = "identity", position = position_dodge(0.9)) +
+    geom_errorbar(aes(x = SplMonth, ymin = mean - se, ymax = mean + se, fill = SiteID),
+                  position = position_dodge(0.9), width = 0.3) +
+    xlab("") + ylab(tag) +
+    scale_fill_discrete("Location",breaks = c("EA1","EA2"),labels = c("Seaward(EA1)","Landward(EA2)")) 
+}
 
 ## Basic Stat information 
 datareadln() %>% write.csv("growth/log/GrowthTraitsRAW.csv", row.names = F)
@@ -422,7 +430,7 @@ ggsave(plot = plotFEsim2facet(rbind(read.csv("growth/log/FixedEff_ajn.csv"),
        width = 6, height = 5)
 
 ## Homogeneity of variance 
-dat %>%
+datareadln() %>%
   dplyr::group_by(group, SplMonth) %>%
   dplyr::summarise(Density_avg = mean(Density,na.rm = T),
                    Density_sd = sd(Density,na.rm = T), 
@@ -498,22 +506,55 @@ lsmeans::cld(lsmeans(mod, adjust = "tukey", specs = "SiteID"), Letters = LETTERS
 
 ## comparing before/after the dyke
 dat <- datareadln() %>% 
-  filter(group == "EA") %>% 
-  select(SiteID, SplMonth, Density, Height, BasalDiameter, AboveGroundBiomass)  %>% 
-  gather(trait, value, Density:AboveGroundBiomass)
+  dplyr::filter(group == "EA") %>% 
+  dplyr::select(SiteID, SplMonth, Density, Height, BasalDiameter, AboveGroundBiomass)  %>% 
+  tidyr::gather(trait, value, Density:AboveGroundBiomass) 
 
-ggplot(data = dat) + 
-  geom_boxplot(aes(x = SiteID, y = value, fill = SplMonth)) +
-  facet_wrap(facets = ~ trait, nrow = 2, scales = "free")
+ggplot(data = dat%>%
+         dplyr::group_by(SiteID,SplMonth,trait) %>%
+         dplyr::summarise(mean = mean(value,na.rm = T),se = (sd(value,na.rm = T)/sum(!is.na(value))))) + 
+  geom_bar(aes(x = SplMonth, y = mean, fill = SiteID),stat = "identity", position = position_dodge(0.9)) +
+  geom_errorbar(aes(x = SplMonth, ymin = mean - se, ymax = mean + se, fill = SiteID),
+                position = position_dodge(0.9), width = 0.3) +
+  xlab("") + ylab("") +
+  scale_fill_discrete("Location",breaks = c("EA1","EA2"),labels = c("Seaward(EA1)","Landward(EA2)")) + 
+  facet_wrap(facets = ~ trait, nrow = 2, scales = "free") 
+ggsave(filename = "growth/plot/bar_growth_EA.png")
+
+singlePlot(dat%>%
+             dplyr::group_by(SiteID,SplMonth,trait) %>%
+             dplyr::summarise(mean = mean(value,na.rm = T),se = (sd(value,na.rm = T)/sum(!is.na(value)))),
+           "Density") 
+ggsave(filename = "growth/plot/bar_density_EA.jpg")
+
+singlePlot(dat%>%
+             dplyr::group_by(SiteID,SplMonth,trait) %>%
+             dplyr::summarise(mean = mean(value,na.rm = T),se = (sd(value,na.rm = T)/sum(!is.na(value)))),
+           "Height") 
+ggsave(filename = "growth/plot/bar_height_EA.png")
+
+singlePlot(dat%>%
+             dplyr::group_by(SiteID,SplMonth,trait) %>%
+             dplyr::summarise(mean = mean(value,na.rm = T),se = (sd(value,na.rm = T)/sum(!is.na(value)))),
+           "BasalDiameter") 
+ggsave(filename = "growth/plot/bar_basalDiameter_EA.png")
+
+singlePlot(dat%>%
+             dplyr::group_by(SiteID,SplMonth,trait) %>%
+             dplyr::summarise(mean = mean(value,na.rm = T),se = (sd(value,na.rm = T)/sum(!is.na(value)))),
+           "AboveGroundBiomass") 
+ggsave(filename = "growth/plot/bar_abovegroundBiomass_EA.png")
 
 for (i in 1:length(unique(dat$trait))) {
   tag <- unique(dat$trait)[i]
-  print(tag);print(":")
+  print(tag)
   anova(lm(value~SiteID*SplMonth, data = dat[dat$trait == tag,])) %>%
-    print();print(NULL);print(NULL);
-  }
+    print()
+}
 tapply(X = dat$value, INDEX = dat$trait,
        FUN = function(x) {with(data = x, anova(lm(value~SiteID * SplMonth)))})
+
+
 
 #plot for Density - tiller biomass
 dat <- datareadln()
