@@ -155,6 +155,7 @@ for(i in 1: length(tagList)){
 } %>% write.csv("sediment/log/t.test_EA.csv",row.names = F)
 
 read.csv("sediment/log/t.test_EA.csv") %>% print(row.names = F)
+
 ## ---------------------------------------------------
 ## scaling and re-analysis
 ##
