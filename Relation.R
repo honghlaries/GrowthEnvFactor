@@ -3,6 +3,7 @@ rm(list = ls())
 
 ## package loading ----
 library(MASS)
+library(vegan)
 library(ggplot2)
 library(dplyr)
 library(tidyr)
@@ -25,6 +26,9 @@ datareadln <- function() {
                              Height_mean,Height_max,BsDmr_mean,BsDmr_max,LvThk_mean,LvThk_max,
                              TlrWg_mean,TlrWg_max,LvWgG_mean,LvWgG_max,StWg_mean,StWg_max),
                     by = c("QudNo" = "QudNo"))
+}
+
+datTran <- function(dat) {
   dat1 <- dat%>% 
     filter(group == "CL") %>%
     group_by(SplMonth) %>%
@@ -138,7 +142,7 @@ Rlmfit <- function(Growth,selG,Env,selE,group,SplMonth,path = "./GrowthvsElement
   }
   colnames(cor) <- c("Etag","Gtag","label", "x", "y")
   
-  smatrix <- ggplot(data = dat, aes(x = Env, y = Growth)) +
+  ggplot(data = dat, aes(x = Env, y = Growth)) +
     geom_point(aes(col = group, shape = SplMonth, alpha = Sign)) +
     geom_smooth(aes(linetype = !Sign, col = group),method = rlm, fill= "grey50",se = F, size = 1) +
     geom_smooth(aes(linetype = !Sign),method = rlm, col = "black",fill= "grey50") +
@@ -149,30 +153,17 @@ Rlmfit <- function(Growth,selG,Env,selE,group,SplMonth,path = "./GrowthvsElement
     scale_color_discrete(name = "Location") +
     scale_shape(name = "Month") +
     scale_alpha_discrete(range = c(0.00,1),breaks = c(0,1), labels = (c(">= 0.05", "< 0.05")), name = "Significance") +
-    scale_linetype_discrete(name = "Significance",breaks = c(0,1), labels = (c("< 0.05", ">= 0.05"))) +
-    theme_bw() +
-    theme(panel.grid = element_blank(),
-          legend.position = "bottom",
-          strip.background = element_blank(),
-          legend.key = element_blank(),
-          axis.text.x = element_text(size = 7, angle = 30),
-          axis.text.y = element_text(size = 7),
-          axis.title = element_text(size = 8),
-          strip.text = element_text(size = 8),
-          legend.text = element_text(size = 8),
-          legend.title = element_text(size = 8))
-  ggsave(plot = smatrix, filename = paste(path,"Matrix_",filename,".eps", sep = ""), dpi = 1200)
-  return(smatrix)
+    scale_linetype_discrete(name = "Significance",breaks = c(0,1), labels = (c("< 0.05", ">= 0.05"))) 
+    
 }
 
 ## DCA ----
 result.dca <-datareadln()%>% 
-  select(N,S,P,Al,Cr,Mn,Fe,Ni,Cu,Zn,As,Cd,Pb,
-         Height,Diameter,AbgBiomass,RametDensity)%>% 
+  #select(N,S,P,Al,Cr,Mn,Fe,Ni,Cu,Zn,As,Cd,Pb,
+  #       Height,Diameter,AbgBiomass,RametDensity)%>% 
   #filter(SplMonth != "Apr") %>%
-  #select(density,Seed_rate,LvCtY_mean,LvCtY_max,
-  #       Height_mean,Height_max,BsDmr_mean,BsDmr_max,LvThk_mean,LvThk_max,
-  #       TlrWg_mean,TlrWg_max,LvWgG_mean,LvWgG_max,StWg_mean,StWg_max)%>% 
+  select(N,S,P,Al,Cr,Mn,Fe,Ni,Cu,Zn,As,Cd,Pb,
+         density,Height_mean,BsDmr_mean,TlrWg_mean)%>% 
   decorana() 
 anova.cca(result.dca)
 
@@ -180,7 +171,7 @@ anova.cca(result.dca)
 library(ggplot2)
 library(vegan)
 library(MASS)
-data <- datareadln()
+data <- datareadln() %>% datTran()
 Env <-  data %>% select(N,S,P,Al,Cr,Mn,Fe,Ni,Cu,Zn,As,Cd,Pb)
 Growth <-data %>%  select(Height,Diameter,AbgBiomass,RametDensity)
 Tag <- data$SiteID
@@ -203,127 +194,5 @@ selG <- c("Height", "Diameter", "AbgBiomass", "RametDensity")
 selE <- c("N", "S", "Cu", "Mn", "Ni", "As")
 
 Rlmfit(Growth,selG,Env,selE,group,SplMonth,filename = "selelement")
-## arc ====
-#Apr-all
-data <- datareadln()%>% 
-  filter(SplMonth == "Apr") 
-
-Env <-  data %>%
-  select(N,S,P,Al,Cr,Mn,Fe,Ni,Cu,Zn,As,Cd,Pb,PhyStress)
-Growth <-data %>%
-  select(density,Height_mean,BsDmr_mean,TlrWg_mean)
-
-Result.rda$null <- rda(Growth~1,Env,scale=TRUE) 
-Result.rda$full <- rda(Growth~.,Env,scale=TRUE) 
-Result.rda$model<- step(Result.rda$null, scope = formula(Result.rda$full), test = "perm")
-anova.cca(Result.rda$model,permutations = how(nperm=9999))
-plot(Result.rda$model)
-
-qplot(data = data, x = orgC, y = TlrWg_mean, col = group)
-qplot(data = data, x = Al, y = density, col = group)
-
-#Apr-ref
-data <- datareadln()%>% 
-  filter(SplMonth == "Apr") %>%
-  filter(group != "EA")
-
-Env <-  data %>%
-  select(N,S,P,Al,Cr,Mn,Fe,Ni,Cu,Zn,As,Cd,Pb,PhyStress)
-Growth <-data %>%
-  select(density,Height_mean,BsDmr_mean,TlrWg_mean)
-
-Result.rda$null <- rda(Growth~1,Env,scale=TRUE) 
-Result.rda$full <- rda(Growth~.,Env,scale=TRUE) 
-Result.rda$model<- step(Result.rda$null, scope = formula(Result.rda$full),test = "perm")
-anova.cca(Result.rda$model,permutations = how(nperm=9999))
-plot(Result.rda$model)
-
-#Jul-all
-data <- datareadln()%>% 
-  filter(SplMonth == "Jul") 
-
-Env <-  data %>%
-  select(N,S,P,Al,Cr,Mn,Fe,Ni,Cu,Zn,As,Cd,Pb,PhyStress)
-Growth <-data %>%
-  select(#density,
-         LvCtG_mean,
-         Height_mean,BsDmr_mean,LvThk_mean,
-         TlrWg_mean,StWg_mean,LvWgG_mean)
-
-Result.rda <- NULL
-Result.rda$null <- rda(Growth~1,Env,scale=TRUE) 
-Result.rda$full <- rda(Growth~.,Env,scale=TRUE) 
-Result.rda$model<- step(Result.rda$null, scope = formula(Result.rda$full), test = "perm")
-anova.cca(Result.rda$model,permutations = how(nperm=9999))
-plot(Result.rda$model)
-
-Result.glm <- NULL
-Result.glm$null <- lm(density~1,data,scale=TRUE) 
-Result.glm$full <- lm(density~N + S +P +Al +Cr +Mn +Fe +Ni +Cu +Zn +As +Cd +Pb + PhyStress, data ,scale=TRUE)
-Result.glm$model<- step(Result.glm$null, scope = formula(Result.glm$full))
-
-qplot(data = data, x = orgC, y = TlrWg_mean, col = group)
-qplot(data = data, x = As, y = density, col = group)
-
-#Jul-ref
-data <- (datareadln()%>% 
-  filter(SplMonth == "Jul") %>%
-  filter(group != "EA"))[-1:-3,]
-
-Env <-  data %>%
-  select(N,C,S,P,Al,Cr,Mn,Fe,Ni,Cu,Zn,As,Cd,Pb,PhyStress)
-Growth <-data %>%
-  select(density,LvCtG_mean,
-         Height_mean,BsDmr_mean,LvThk_mean,
-         TlrWg_mean,StWg_mean,LvWgG_mean)
-
-Result.rda$null <- rda(Growth~1,Env,scale=TRUE) 
-Result.rda$full <- rda(Growth~.,Env,scale=TRUE) 
-Result.rda$model<- step(Result.rda$null, scope = formula(Result.rda$full), test = "perm")
-anova.cca(Result.rda$model,permutations = how(nperm=9999))
-plot(Result.rda$model)
-
-qplot(data = data, x = orgC, y = TlrWg_mean, col = group)
-qplot(data = data, x = N, y = density, col = group)
-
-
-#Nov-all
-data <- datareadln()%>% 
-  filter(SplMonth == "Nov") 
-
-Env <-  data %>%
-  select(N,S,P,Al,Cr,Mn,Fe,Ni,Cu,Zn,As,Cd,Pb,PhyStress)
-Growth <-data %>%
-  select(density,LvCtG_mean,LvCtY_mean, Seed_rate,
-         Height_mean,BsDmr_mean,LvThk_mean,
-         TlrWg_mean,StWg_mean,LvWgG_mean)
-
-Result.rda$null <- rda(Growth~1,Env,scale=TRUE) 
-Result.rda$full <- rda(Growth~.,Env,scale=TRUE) 
-Result.rda$model<- step(Result.rda$null, scope = formula(Result.rda$full), test = "perm")
-anova.cca(Result.rda$model,permutations = how(nperm=9999))
-plot(Result.rda$model)
-
-qplot(data = data, x = orgC, y = TlrWg_mean, col = group)
-qplot(data = data, x = Cu, y = TlrWg_mean, col = group)
-
-
-#Nov-ref
-data <- datareadln()%>% 
-  filter(SplMonth == "Nov") %>%
-  filter(group != "EA")
-
-Env <-  data %>%
-  select(N,S,P,orgC,Al,Cr,Mn,Fe,Ni,Cu,Zn,As,Cd,Pb,PhyStress)
-Growth <-data %>%
-  select(density,LvCtG_mean,LvCtY_mean, Seed_rate,
-         Height_mean,BsDmr_mean,LvThk_mean,
-         TlrWg_mean,StWg_mean,LvWgG_mean)
-
-Result.rda$null <- rda(Growth~1,Env,scale=TRUE) 
-Result.rda$full <- rda(Growth~.,Env,scale=TRUE) 
-Result.rda$model<- step(Result.rda$null, scope = formula(Result.rda$full), test = "perm")
-anova.cca(Result.rda$model,permutations = how(nperm=9999))
-plot(Result.rda$model)
 
 
