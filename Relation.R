@@ -105,7 +105,7 @@ StepRDA <- function(Growth,Env,Tag,SplMonth,path = "./GrowthvsElement/",filename
   mod
 }
 
-Rlmfit <- function(Growth,selG,Env,selE,group,SplMonth,path = "./GrowthvsElement/",filename) {
+RDAlmfit <- function(Growth,selG,Env,selE,group,SplMonth) {
   library(MASS)
   library(ggplot2)
   library(dplyr)
@@ -194,5 +194,3 @@ selG <- c("Height", "Diameter", "AbgBiomass", "RametDensity")
 selE <- c("N", "S", "Cu", "Mn", "Ni", "As")
 
 Rlmfit(Growth,selG,Env,selE,group,SplMonth,filename = "selelement")
-
-
