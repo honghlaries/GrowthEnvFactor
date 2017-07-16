@@ -145,11 +145,19 @@ RDAlmfit <- function(Growth,selG,Env,selE,group,SplMonth) {
   colnames(cor) <- c("Etag","Gtag","label", "x", "y")
   
   ggplot() +
-    geom_point(aes(x = Env, y = Growth, col = group, shape = SplMonth), data = dat.p) +
+    geom_point(aes(x = Env, y = Growth, col = group, shape = SplMonth), 
+               alpha = 0.5, size = 0.7, 
+               data = dat.p %>% 
+                 mutate(Gtag = factor(Gtag, levels = c("Height", "Diameter","AbgBiomass","RametDensity")),
+                        Etag = factor(Etag, levels = c("N", "S","Cu","Mn","Ni","As")))) +
     geom_smooth(aes(x = Env, y = Growth),col = "black", method = rlm, se = F,
-                data = dat.smooth.gather) +
+                data = dat.smooth.gather%>% 
+                  mutate(Gtag = factor(Gtag, levels = c("Height", "Diameter","AbgBiomass","RametDensity")),
+                         Etag = factor(Etag, levels = c("N", "S","Cu","Mn","Ni","As")))) +
     geom_smooth(aes(x = Env, y = Growth,  col = group), method = rlm, se = F,
-                data = dat.smooth.group) +
+                data = dat.smooth.group%>% 
+                  mutate(Gtag = factor(Gtag, levels = c("Height", "Diameter","AbgBiomass","RametDensity")),
+                         Etag = factor(Etag, levels = c("N", "S","Cu","Mn","Ni","As")))) +
     facet_grid(Gtag~Etag, scales = "free") +
     geom_text(aes(label = label, x= x, y = y),data = cor, size = 2.5) 
 }
