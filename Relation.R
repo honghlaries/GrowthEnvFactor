@@ -51,7 +51,7 @@ datTran <- function(dat) {
            Height,Diameter,AbgBiomass,RametDensity)
 }
 
-StepRDA <- function(Growth,Env,Tag,SplMonth,path = "./GrowthvsElement/",filename) {
+StepRDA <- function(Growth,Env,Tag,SplMonth) {
   library(vegan)
   library(ggplot2)
   
@@ -60,10 +60,6 @@ StepRDA <- function(Growth,Env,Tag,SplMonth,path = "./GrowthvsElement/",filename
   mod <- step(null, scope = formula(full), test = "perm")
   
   perm <- anova.cca(mod,permutations = how(nperm=9999))
-  print(perm)
-  write.csv(format(perm),paste(path, "output_", filename, ".csv", sep = ""))
-  
-  plot(mod)
   effload <- mod$CCA$v[,1:2]; effloadx <-effload - effload; efftag <- row.names(effload); effload <- data.frame(rbind(effloadx,effload),efftag)
   envload <- mod$CCA$biplot[,1:2]; envloadx <- envload - envload; envtag <- row.names(envload); envload <- data.frame(rbind(envloadx,envload),envtag)
   sampload <- mod$CCA$wa[,1:2]; sampload <- data.frame(sampload,Tag,SplMonth)
@@ -71,7 +67,6 @@ StepRDA <- function(Growth,Env,Tag,SplMonth,path = "./GrowthvsElement/",filename
     inner_join(read.csv("./Data/meta_SiteGroup.csv"), by = c("Tag" = "SiteID"))
   sampload.group <- sampload %>%
     inner_join(read.csv("./Data/meta_SiteGroup.csv"), by = c("Tag" = "SiteID")) %>%
-    select(-col) %>%
     group_by(SplMonth, group) %>%
     dplyr::summarise(RDA1.avg = mean(RDA1,na.rm = T),
               RDA1.se = sd(RDA1,na.rm = T)/sqrt(n()-sum(is.na(RDA1))),
@@ -99,10 +94,7 @@ StepRDA <- function(Growth,Env,Tag,SplMonth,path = "./GrowthvsElement/",filename
     scale_y_continuous(name = "RDA2", limits = c(-1.1,1.1)) +
     scale_shape("Month") + scale_color_hue("Location") +  
     theme_bw()
-  ggsave(plot = loadplot,filename = paste(path, "RDAloading_", filename, ".eps", sep = ""))
-  ggsave(plot = loadplot,filename = paste(path, "RDAloading_", filename, ".tiff", sep = ""))
-  ggsave(plot = loadplot,filename = paste(path, "RDAloading_", filename, ".png", sep = ""), dpi = 1200)
-  mod
+  list(mod = mod, plot = loadplot, perm = perm)
 }
 
 RDAlmfit <- function(Growth,selG,Env,selE,group,SplMonth) {
@@ -114,17 +106,27 @@ RDAlmfit <- function(Growth,selG,Env,selE,group,SplMonth) {
   Growth <- Growth %>% select(one_of(selG))
   Env <- Env %>% select(one_of(selE))
   
-  dat <- NULL
-  for(i in 1:length(colnames(Growth))) {
-    for(j in 1:length(colnames(Env))) {
-      Etag <- colnames(Env)[j]
-      Gtag <- colnames(Growth)[i]
-      relation <- cor.test(Growth[,i],Env[,j],method="pearson")
-      dat <- rbind(dat,data.frame(Etag,Gtag,Env[,j],Growth[,i],group,SplMonth,Sign = (relation$p.value < 0.05)))
+  dat.p <- cbind(Growth,Env,group,SplMonth) %>%
+    tidyr::gather_("Etag","Env",selE) %>%
+    tidyr::gather_("Gtag","Growth",selG)
+  
+  dat.smooth.gather <- NULL
+  dat.smooth.group <- NULL
+  for(i in 1:length(selE)) { 
+    for(j in 1:length(selG)) {
+      dat.tmp <- dat.p %>% filter(Etag == selE[i],Gtag == selG[j])
+      if(cor.test(dat.tmp$Growth,dat.tmp$Env,method="pearson")$p.value < 0.05) {
+        dat.smooth.gather <- rbind(dat.smooth.gather,dat.tmp)
+      }
+      for(k in 1:length(group)) {
+        dat.tmp <- dat.p %>% filter(Etag == selE[i],Gtag == selG[j],group == group[k]) 
+        if(cor.test(dat.tmp$Growth,dat.tmp$Env,method="pearson")$p.value < 0.05) {
+          dat.smooth.group <- rbind(dat.smooth.gather,dat.tmp)
+        }   
+      }
     }
   }
-  colnames(dat) <- c("Etag","Gtag","Env","Growth","group","SplMonth","Sign") 
-  
+
   cor <- NULL 
   for(i in 1:length(colnames(Growth))) {
     for(j in 1:length(colnames(Env))) {
@@ -142,19 +144,14 @@ RDAlmfit <- function(Growth,selG,Env,selE,group,SplMonth) {
   }
   colnames(cor) <- c("Etag","Gtag","label", "x", "y")
   
-  ggplot(data = dat, aes(x = Env, y = Growth)) +
-    geom_point(aes(col = group, shape = SplMonth, alpha = Sign)) +
-    geom_smooth(aes(linetype = !Sign, col = group),method = rlm, fill= "grey50",se = F, size = 1) +
-    geom_smooth(aes(linetype = !Sign),method = rlm, col = "black",fill= "grey50") +
+  ggplot() +
+    geom_point(aes(x = Env, y = Growth, col = group, shape = SplMonth), data = dat.p) +
+    geom_smooth(aes(x = Env, y = Growth),col = "black", method = rlm, se = F,
+                data = dat.smooth.gather) +
+    geom_smooth(aes(x = Env, y = Growth,  col = group), method = rlm, se = F,
+                data = dat.smooth.group) +
     facet_grid(Gtag~Etag, scales = "free") +
-    geom_text(aes(label = label, x= x, y = y),data = cor, size = 2.5) +
-    scale_x_continuous(name = "Element Content (mg/kg)") +
-    scale_y_continuous(name = "Growth Promotion Effect") +
-    scale_color_discrete(name = "Location") +
-    scale_shape(name = "Month") +
-    scale_alpha_discrete(range = c(0.00,1),breaks = c(0,1), labels = (c(">= 0.05", "< 0.05")), name = "Significance") +
-    scale_linetype_discrete(name = "Significance",breaks = c(0,1), labels = (c("< 0.05", ">= 0.05"))) 
-    
+    geom_text(aes(label = label, x= x, y = y),data = cor, size = 2.5) 
 }
 
 ## DCA ----
@@ -178,7 +175,11 @@ Tag <- data$SiteID
 SplMonth <- data$SplMonth
 group <- data$group
 
-Result.rda <- StepRDA(Growth,Env,Tag,SplMonth, filename = "LogTrans")
+Result.rda <- StepRDA(Growth,Env,Tag,SplMonth)
+Result.rda$mod
+Result.rda$perm
+Result.rda$plot
+
 
 qplot(data = data, x = N, y = AbgBiomass) +
   geom_smooth(method = rlm, linetype = 1, col = "black",fill= "red") +
@@ -193,4 +194,4 @@ qplot(data = data, x = As, y = Diameter) +
 selG <- c("Height", "Diameter", "AbgBiomass", "RametDensity")
 selE <- c("N", "S", "Cu", "Mn", "Ni", "As")
 
-Rlmfit(Growth,selG,Env,selE,group,SplMonth,filename = "selelement")
+RDAlmfit(Growth,selG,Env,selE,group,SplMonth)
