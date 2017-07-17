@@ -572,57 +572,59 @@ dat2 <- dat %>%
             W.mean = mean(AboveGroundBiomass),
             W.sd = sd(AboveGroundBiomass)) 
 
-ggsave("growth/plot/Density-Biomass_site.eps", 
-       ggplot() +
-         geom_point(data = dat, stat = "identity", 
-                    aes(x = AboveGroundBiomass, y = Density, colour = group, shape = SplMonth), 
-                    size = 0.6) +
-         #geom_point(data = pdata1, stat = "identity", 
-         #           aes(x = W.mean, y = N.mean, colour = col), 
-         #           size = 3, alpha =0.5) +
-         geom_path(data = dat1, aes(y = D.mean, x = W.mean, group = SiteID, colour = group),
-                   size = .7, arrow = arrow(length = unit(0.1, "inches")))+
-         geom_errorbar(data = dat1,
-                       aes(y = D.mean, x = W.mean, ymax = D.mean + D.sd, ymin = D.mean - D.sd),
-                       colour = "grey50", stat = "identity", size = .5, width = 0)+
-         geom_errorbarh(data = dat1,
-                        aes(y = D.mean, x = W.mean, xmax = W.mean + W.sd, xmin = W.mean - W.sd),
-                        colour = "grey50", stat = "identity", size = .5, height = 0)+
-         xlab("Tiller Mean Abground Biomass(g)") + ylab("Tiller Density") +
-         scale_colour_manual(breaks = c("CL","EA","WE"), values = c("#B45F04", "#31B404", "#013ADF")) +
-         facet_wrap(~SiteID, ncol = 4) +
-         theme_bw() +
-         theme(legend.position = "none",
-               axis.title = element_text(size = 8),
-               axis.text = element_text(size = 8),
-               strip.text = element_text(size = 8)),
-       width = 5, height = 4)
 
-ggsave("growth/plot/Density-Biomass_group.eps", 
-       ggplot() +
-         geom_point(data = dat, stat = "identity", 
-                    aes(x = AboveGroundBiomass, y = Density, colour = group, shape = SplMonth), 
-                    size = 0.6) +
-         #geom_point(data = pdata1, stat = "identity", 
-         #           aes(x = W.mean, y = N.mean, colour = col), 
-         #           size = 3, alpha =0.5) +
-         geom_path(data = dat2, aes(y = D.mean, x = W.mean, group = group, colour = group),
-                   size = .7, arrow = arrow(length = unit(0.1, "inches")))+
-         geom_errorbar(data = dat2,
-                       aes(y = D.mean, x = W.mean, ymax = D.mean + D.sd, ymin = D.mean - D.sd),
-                       colour = "grey50", stat = "identity", size = .5, width = 0)+
-         geom_errorbarh(data = dat2,
-                        aes(y = D.mean, x = W.mean, xmax = W.mean + W.sd, xmin = W.mean - W.sd),
-                        colour = "grey50", stat = "identity", size = .5, height = 0)+
-         xlab("Tiller Mean Abground Biomass(g)") + ylab("Tiller Density") +
-         scale_colour_manual(breaks = c("CL","EA","WE"), values = c("#B45F04", "#31B404", "#013ADF")) +
-         facet_wrap(~group, ncol = 4) +
-         theme_bw() +
-         theme(legend.position = "none",
-               axis.title = element_text(size = 8),
-               axis.text = element_text(size = 8),
-               strip.text = element_text(size = 8)),
-       width = 5, height = 2)
+ggplot() +
+  geom_point(data = dat, stat = "identity", 
+             aes(x = AboveGroundBiomass, y = Density, colour = SplMonth)) +
+  geom_path(data = dat2, aes(y = D.mean, x = W.mean, group = group),
+            col = "black", size = 0.7, arrow = arrow(length = unit(0.1, "inches"))) +
+  #geom_point(data = pdata1, stat = "identity", 
+  #           aes(x = W.mean, y = N.mean, colour = col), 
+  #           size = 3, alpha =0.5) +
+  geom_errorbar(data = dat2,
+                aes(x = W.mean, ymax = D.mean + D.sd, ymin = D.mean - D.sd,
+                    colour = SplMonth),
+                stat = "identity", size = .5, width = 0) +
+  geom_errorbarh(data = dat2,
+                 aes(y = D.mean, x = W.mean, xmax = W.mean + W.sd, xmin = W.mean - W.sd, 
+                     colour = SplMonth),
+                 stat = "identity", size = .5, height = 0) +
+  xlab("Tiller Mean Abground Biomass(g)") + ylab("Tiller Density") +
+  scale_colour_discrete("Month") +
+  facet_wrap(~SiteID, ncol = 4) +
+  theme_bw() +
+  theme(legend.position = "right",
+        axis.title = element_text(size = 8),
+        axis.text = element_text(size = 8),
+        strip.text = element_text(size = 8))
+ggsave("plot/path.Density-Biomass_site.png", width = 8, height = 5, dpi = 600)
+
+ggplot() +
+  geom_point(data = dat, stat = "identity", 
+             aes(x = AboveGroundBiomass, y = Density, colour = SplMonth)) +
+  geom_path(data = dat2, aes(y = D.mean, x = W.mean, group = group),
+            col = "black", size = 0.7, arrow = arrow(length = unit(0.1, "inches"))) +
+  #geom_point(data = pdata1, stat = "identity", 
+  #           aes(x = W.mean, y = N.mean, colour = col), 
+  #           size = 3, alpha =0.5) +
+  geom_errorbar(data = dat2,
+                aes(x = W.mean, ymax = D.mean + D.sd, ymin = D.mean - D.sd,
+                    colour = SplMonth),
+                stat = "identity", size = .5, width = 0) +
+  geom_errorbarh(data = dat2,
+                 aes(y = D.mean, x = W.mean, xmax = W.mean + W.sd, xmin = W.mean - W.sd, 
+                     colour = SplMonth),
+                 stat = "identity", size = .5, height = 0) +
+  xlab("Tiller Mean Abground Biomass(g)") + ylab("Tiller Density") +
+  scale_colour_discrete("Month") +
+  facet_wrap(~group, ncol = 4, scales = "free") +
+  theme_bw() +
+  theme(legend.position = "right",
+        axis.title = element_text(size = 8),
+        axis.text = element_text(size = 8),
+        strip.text = element_text(size = 8))
+ggsave("plot/path.Density-Biomass_group.eps", width = 8, height = 3)
+ggsave("plot/path.Density-Biomass_group.png", width = 8, height = 3, dpi = 600)
 
 # Height structure
 dat <- read.csv("./Data/Result_PlantTillerGrowth.csv") %>%
