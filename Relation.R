@@ -55,6 +55,13 @@ StepRDA <- function(Growth,Env,Tag,SplMonth) {
   library(vegan)
   library(ggplot2)
   
+  circleFun <- function(center = c(0,0), r = 1, npoints = 100){
+    tt <- seq(0,2*pi,length.out = npoints)
+    xx <- center[1] + r * cos(tt)
+    yy <- center[2] + r * sin(tt)
+    data.frame(x = xx, y = yy)
+  }
+  
   null <- rda(Growth~1,Env,scale=TRUE) 
   full <- rda(Growth~.,Env,scale=TRUE) 
   mod <- step(null, scope = formula(full), test = "perm")
@@ -75,25 +82,28 @@ StepRDA <- function(Growth,Env,Tag,SplMonth) {
               RDA2.se = sd(RDA2,na.rm = T)/sqrt(n()-sum(is.na(RDA2))),
               RDA2.sd = sd(RDA2,na.rm = T))
   loadplot <- ggplot() +
-    geom_point(aes(x = RDA1,y = RDA2, col = group, shape = SplMonth), size = 1,
-               data = sampload.site) +
+    geom_path(aes(x = x, y = y),col = "black", size = 0.7, linetype = 2, data = circleFun()) +
+    #geom_point(aes(x = RDA1,y = RDA2, col = group), size = 1,
+    #           data = sampload.site) +
     geom_path(aes(x = RDA1,y = RDA2),group = envload$envtag, size = 0.7,
               data = envload, col = "black") +
     geom_path(aes(x = RDA1,y = RDA2),group = effload$efftag, size = 0.7,
               data = effload, col = "blue") +
-    geom_errorbar(aes(x = RDA1.avg, y = RDA2.avg, ymax = RDA2.avg + RDA2.sd, ymin = RDA2.avg - RDA2.sd), 
-                      col = "grey50", size = 0.7, data = sampload.group) +
-    geom_errorbarh(aes(y = RDA2.avg, x = RDA1.avg, xmax = RDA1.avg + RDA1.sd, xmin = RDA1.avg - RDA1.sd), 
-                   col = "grey50", size = 0.7, data = sampload.group) +
-    geom_point(aes(x = RDA1.avg,y = RDA2.avg, col = group, shape = SplMonth), size = 3, 
+    geom_errorbar(aes(x = RDA1.avg, y = RDA2.avg, 
+                      ymax = RDA2.avg + RDA2.sd, ymin = RDA2.avg - RDA2.sd,
+                      col = group), 
+                  size = 0.7, data = sampload.group) +
+    geom_errorbarh(aes(y = RDA2.avg, x = RDA1.avg, 
+                       xmax = RDA1.avg + RDA1.sd, xmin = RDA1.avg - RDA1.sd,
+                       col = group), 
+                   size = 0.7, data = sampload.group) +
+    geom_point(aes(x = RDA1.avg,y = RDA2.avg, col = group, shape = SplMonth), size = 2, 
                data = sampload.group) +
     geom_label(aes(x = RDA1,y = RDA2, label = envtag), size = 3.5, data = envload[7:12,], col = "black") + 
     geom_label(aes(x = RDA1,y = RDA2, label = efftag), size = 3.5, data = effload[5:8,], col = "blue", 
                nudge_y =c(0.05,0.02,-0.07,-0.05),nudge_x =c(0,-0.1,-0,0)) +
     scale_x_continuous(name = "RDA1", limits = c(-1.1,1.1)) +
-    scale_y_continuous(name = "RDA2", limits = c(-1.1,1.1)) +
-    scale_shape("Month") + scale_color_hue("Location") +  
-    theme_bw()
+    scale_y_continuous(name = "RDA2", limits = c(-1.1,1.1)) 
   list(mod = mod, plot = loadplot, perm = perm)
 }
 
@@ -146,7 +156,6 @@ RDAlmfit <- function(Growth,selG,Env,selE,group,SplMonth) {
   
   ggplot() +
     geom_point(aes(x = Env, y = Growth, col = group, shape = SplMonth), 
-               alpha = 0.5, size = 0.7, 
                data = dat.p %>% 
                  mutate(Gtag = factor(Gtag, levels = c("Height", "Diameter","AbgBiomass","RametDensity")),
                         Etag = factor(Etag, levels = c("N", "S","Cu","Mn","Ni","As")))) +
@@ -186,7 +195,13 @@ group <- data$group
 Result.rda <- StepRDA(Growth,Env,Tag,SplMonth)
 Result.rda$mod
 Result.rda$perm
-Result.rda$plot
+Result.rda$plot+
+  scale_shape("Month") + scale_color_hue("Location") +  
+  theme_bw() +
+  theme(aspect.ratio = 1,
+        panel.grid = element_blank())
+ggsave("plot/biplot.RDAlmfit.eps", width = 8, height = 6)
+ggsave("plot/biplot.RDAlmfit.png",dpi = 600, width = 8, height = 6)
 
 
 qplot(data = data, x = N, y = AbgBiomass) +
@@ -202,4 +217,17 @@ qplot(data = data, x = As, y = Diameter) +
 selG <- c("Height", "Diameter", "AbgBiomass", "RametDensity")
 selE <- c("N", "S", "Cu", "Mn", "Ni", "As")
 
-RDAlmfit(Growth,selG,Env,selE,group,SplMonth)
+RDAlmfit(Growth,selG,Env,selE,group,SplMonth) + 
+  scale_x_continuous(name = "Element Content (mg/kg)") +
+  scale_y_continuous(name = "Growth Promotion Effect") +
+  scale_color_discrete(name = "Location") +
+  scale_shape(name = "Month") +
+  theme_bw()+
+  theme(aspect.ratio = 1,
+        axis.text.x = element_text(angle = 30),
+        panel.grid = element_blank(),
+        legend.position = "bottom") 
+ggsave("plot/scatter.RDAlmfit.pdf", width = 8, height = 6)
+ggsave("plot/scatter.RDAlmfit.png",dpi = 600, width = 8, height = 6)
+
+  
