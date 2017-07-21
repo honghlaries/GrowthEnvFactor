@@ -83,8 +83,8 @@ StepRDA <- function(Growth,Env,Tag,SplMonth) {
               RDA2.sd = sd(RDA2,na.rm = T))
   loadplot <- ggplot() +
     geom_path(aes(x = x, y = y),col = "black", size = 0.7, linetype = 2, data = circleFun()) +
-    geom_point(aes(x = RDA1,y = RDA2, col = group), size = 1, col = "grey50",
-               data = sampload.site) +
+    #geom_point(aes(x = RDA1,y = RDA2, col = group), size = 1, col = "grey50",
+    #           data = sampload.site) +
     geom_path(aes(x = RDA1,y = RDA2),group = envload$envtag, size = 0.7,
               data = envload, col = "black") +
     geom_path(aes(x = RDA1,y = RDA2),group = effload$efftag, size = 0.7,
@@ -200,7 +200,6 @@ Result.rda$plot+
         panel.grid = element_blank())
 ggsave("plot/biplot.RDAlmfit.eps", width = 8, height = 6)
 ggsave("plot/biplot.RDAlmfit.png",dpi = 600, width = 8, height = 6)
-
 
 qplot(data = data, x = N, y = AbgBiomass) +
   geom_smooth(method = rlm, linetype = 1, col = "black",fill= "red") +
