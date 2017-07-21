@@ -83,20 +83,18 @@ StepRDA <- function(Growth,Env,Tag,SplMonth) {
               RDA2.sd = sd(RDA2,na.rm = T))
   loadplot <- ggplot() +
     geom_path(aes(x = x, y = y),col = "black", size = 0.7, linetype = 2, data = circleFun()) +
-    #geom_point(aes(x = RDA1,y = RDA2, col = group), size = 1,
-    #           data = sampload.site) +
+    geom_point(aes(x = RDA1,y = RDA2, col = group), size = 1, col = "grey50",
+               data = sampload.site) +
     geom_path(aes(x = RDA1,y = RDA2),group = envload$envtag, size = 0.7,
               data = envload, col = "black") +
     geom_path(aes(x = RDA1,y = RDA2),group = effload$efftag, size = 0.7,
               data = effload, col = "blue") +
     geom_errorbar(aes(x = RDA1.avg, y = RDA2.avg, 
-                      ymax = RDA2.avg + RDA2.sd, ymin = RDA2.avg - RDA2.sd,
-                      col = group), 
-                  size = 0.7, data = sampload.group) +
+                      ymax = RDA2.avg + RDA2.sd, ymin = RDA2.avg - RDA2.sd),
+                  col = "grey50", size = 0.5, data = sampload.group) +
     geom_errorbarh(aes(y = RDA2.avg, x = RDA1.avg, 
-                       xmax = RDA1.avg + RDA1.sd, xmin = RDA1.avg - RDA1.sd,
-                       col = group), 
-                   size = 0.7, data = sampload.group) +
+                       xmax = RDA1.avg + RDA1.sd, xmin = RDA1.avg - RDA1.sd), 
+                   col = "grey50", size = 0.5, data = sampload.group) +
     geom_point(aes(x = RDA1.avg,y = RDA2.avg, col = group, shape = SplMonth), size = 2, 
                data = sampload.group) +
     geom_label(aes(x = RDA1,y = RDA2, label = envtag), size = 3.5, data = envload[7:12,], col = "black") + 
