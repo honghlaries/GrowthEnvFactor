@@ -153,7 +153,7 @@ RDAlmfit <- function(Growth,selG,Env,selE,group,SplMonth) {
   colnames(cor) <- c("Etag","Gtag","label", "x", "y")
   
   ggplot() +
-    geom_point(aes(x = Env, y = Growth, col = group, shape = SplMonth), 
+    geom_point(aes(x = Env, y = Growth, col = group), size = 0.7,
                data = dat.p %>% 
                  mutate(Gtag = factor(Gtag, levels = c("Height", "Diameter","AbgBiomass","RametDensity")),
                         Etag = factor(Etag, levels = c("N", "S","Cu","Mn","Ni","As")))) +
@@ -218,7 +218,7 @@ RDAlmfit(Growth,selG,Env,selE,group,SplMonth) +
   scale_x_continuous(name = "Element Content (mg/kg)") +
   scale_y_continuous(name = "Growth Promotion Effect") +
   scale_color_discrete(name = "Location") +
-  scale_shape(name = "Month") +
+  #scale_shape(name = "Month") +
   theme_bw()+
   theme(aspect.ratio = 1,
         axis.text.x = element_text(angle = 30),
