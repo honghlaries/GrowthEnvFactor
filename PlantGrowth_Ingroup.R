@@ -22,6 +22,7 @@ datareadln <- function() {
                   AboveGroundBiomass = TlrWg_mean,
                   LeafBiomass = LvWgG_mean,
                   SeedRate = Seed_rate,
+                  Density = Number*4,
                   dist) 
 }
 
@@ -31,7 +32,7 @@ datareadln <- function() {
 ## ---------------------------------------------------
 
 dat <- datareadln() %>%
-  gather(trait, value, Height:SeedRate)
+  gather(trait, value, Height:Density)
 dat[dat$trait == "SeedRate" & dat$value == 0,]$value <- NA
 
 ####               ####
